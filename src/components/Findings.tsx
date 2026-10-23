@@ -7,7 +7,23 @@ interface FindingsProps {
   onTick: (finding: Finding, ticked: boolean) => void;
 }
 
-function FindingRow({ finding, canTick, onTick }: { finding: Finding; canTick: boolean; onTick: FindingsProps["onTick"] }) {
+/** The file on GitHub, scrolled to the line. `HEAD` is the repo's default branch. */
+function githubUrl(repoUrl: string, finding: Finding): string {
+  const path = finding.file_path.split("/").map(encodeURIComponent).join("/");
+  return `${repoUrl}/blob/HEAD/${path}${finding.line ? `#L${finding.line}` : ""}`;
+}
+
+function FindingRow({
+  finding,
+  repoUrl,
+  canTick,
+  onTick,
+}: {
+  finding: Finding;
+  repoUrl: string;
+  canTick: boolean;
+  onTick: FindingsProps["onTick"];
+}) {
   const location = finding.line ? `${finding.file_path}:${finding.line}` : finding.file_path;
   const uncertain = finding.confidence === "uncertain";
   return (
@@ -30,7 +46,17 @@ function FindingRow({ finding, canTick, onTick }: { finding: Finding; canTick: b
       )}
       <div className="flex flex-col gap-1 min-w-0">
         <p className="type-code font-medium wrap-break-word">{finding.item}</p>
-        <p className="type-code c-muted wrap-break-word">{location}</p>
+        <p className="type-code wrap-break-word">
+          <a
+            className="code-link"
+            href={githubUrl(repoUrl, finding)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={SCAN.results.openOnGithub}
+          >
+            {location}
+          </a>
+        </p>
         <p className="type-small c-muted">{finding.evidence}</p>
         {!finding.report_only && (
           <Badge
@@ -66,7 +92,7 @@ export function Findings({ scan, onTick }: FindingsProps) {
             </div>
             <ul className="flex flex-col gap-2 list-none p-0 m-0">
               {rows.map((finding) => (
-                <FindingRow key={finding.id} finding={finding} canTick={scan.can_tick} onTick={onTick} />
+                <FindingRow key={finding.id} finding={finding} repoUrl={scan.repo.url} canTick={scan.can_tick} onTick={onTick} />
               ))}
             </ul>
           </section>

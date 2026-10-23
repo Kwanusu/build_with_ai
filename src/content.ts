@@ -170,6 +170,7 @@ export const SCAN = {
     notice:
       "Pull requests aren't available yet. Tick what you plan to remove and make the changes yourself. Lopper never removes anything on its own.",
     lintNote: "Lint issues are report only.",
+    openOnGithub: "Open on GitHub",
     tickHelp: "Items with no use found start ticked. Items that need a closer look start unticked.",
     tickError: "We couldn't save that change. Nothing has been changed in your code. Try again.",
   },

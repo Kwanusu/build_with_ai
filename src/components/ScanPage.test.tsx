@@ -129,6 +129,12 @@ describe("results", () => {
     expect(headings).toEqual(["Unused packages", "Unused dev dependencies", "Unused exports", "Lint issues"]);
     const row = screen.getByText("left-pad").closest("li")!;
     expect(within(row).getByText("package.json:6")).toBeInTheDocument();
+    expect(within(row).getByRole("link", { name: "package.json:6" })).toHaveAttribute(
+      "href",
+      "https://github.com/acme/web-platform/blob/HEAD/package.json#L6",
+    );
+    const lint = screen.getByText("Unused import 'useEffect'").closest("li")!;
+    expect(within(lint).getByRole("link", { name: "src/App.tsx:2" })).toHaveAttribute("target", "_blank");
     expect(within(row).getByText(/No file under the repo root imports 'left-pad'/)).toBeInTheDocument();
     expect(within(row).getByText("No use found")).toBeInTheDocument();
     const uncertain = screen.getByText("parseLegacyToken").closest("li")!;

@@ -112,6 +112,7 @@
 
   .c-primary { color: var(--c-primary); }
   .c-muted { color: var(--c-muted); }
+  .code-link { color: var(--c-primary); text-decoration: underline; text-underline-offset: 2px; }
   .c-text { color: var(--c-text); }
   .bg-page { background: var(--c-page); }
   .rule { border-color: var(--c-border); }
