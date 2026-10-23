@@ -1,7 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AuthContext } from "../auth";
+import { OCTO, authValue, finding, mockApi, scan } from "../testing";
 import { ScanPage } from "./ScanPage";
-import { finding, mockApi, scan } from "../testing";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -232,3 +233,56 @@ describe("errors", () => {
     expect(screen.getByText(/Nothing has been changed/)).toBeInTheDocument();
   });
 });
+
+describe("scans you can't tick", () => {
+  const items = () => [finding({ id: 201, item: "formatInvoice" }), finding({ id: 202, type: "lint-issue", item: "Unused import 'x'", report_only: true, ticked: false })];
+
+  function renderUntickable(auth = authValue()) {
+    mockApi({ [LATEST]: () => ({ body: { scan: scan({ can_tick: false }, items()) } }) });
+    render(
+      <AuthContext.Provider value={auth}>
+        <ScanPage {...REPO} pollMs={0} />
+      </AuthContext.Provider>,
+    );
+  }
+
+  it("shows the findings and evidence but no checkboxes or tick count", async () => {
+    renderUntickable();
+    expect(await screen.findByText("formatInvoice")).toBeInTheDocument();
+    expect(screen.getAllByText(/no other file mentions it/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/items? ticked/)).toBeNull();
+  });
+
+  it("tells a signed-out visitor to sign in, with a link when sign-in is available", async () => {
+    renderUntickable(authValue({ signInAvailable: true }));
+    expect(await screen.findByText(/Sign in with GitHub to tick items and keep your choices\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in with GitHub" })).toHaveAttribute("href", "/api/auth/github/login");
+  });
+
+  it("offers no sign-in link when sign-in isn't set up", async () => {
+    renderUntickable(authValue({ signInAvailable: false }));
+    expect(await screen.findByText(/Sign in with GitHub to tick items/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in with GitHub" })).toBeNull();
+  });
+
+  it("tells a signed-in person it is a public scan and to rescan for their own copy", async () => {
+    renderUntickable(authValue({ user: OCTO, signInAvailable: true }));
+    expect(await screen.findByText(/This is a public scan, so items can't be ticked on it\. Rescan to get your own copy/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in with GitHub" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Rescan repo" })).toBeInTheDocument();
+  });
+
+  it("a scan you own still shows checkboxes and no sign-in message", async () => {
+    mockApi({ [LATEST]: () => ({ body: { scan: scan({ can_tick: true }, items()) } }) });
+    render(
+      <AuthContext.Provider value={authValue({ user: OCTO, signInAvailable: true })}>
+        <ScanPage {...REPO} pollMs={0} />
+      </AuthContext.Provider>,
+    );
+    expect(await screen.findByRole("checkbox", { name: "Tick formatInvoice to remove it" })).toBeChecked();
+    expect(screen.queryByText(/Sign in with GitHub to tick/)).toBeNull();
+    expect(screen.queryByText(/public scan/)).toBeNull();
+  });
+});
+

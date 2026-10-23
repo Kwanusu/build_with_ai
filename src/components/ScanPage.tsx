@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ApiError, getLatestScan, getScan, setTicked, startScan, type Finding, type Scan } from "../api";
-import { SCAN } from "../content";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, getLatestScan, getScan, setTicked, signInHref, startScan, type Finding, type Scan } from "../api";
+import { useAuth } from "../auth";
+import { CANNOT_TICK, CONNECT, SCAN } from "../content";
 import { scanHash } from "../route";
+import { Connect, Frame } from "./Connect";
 import { Findings } from "./Findings";
-import { CircleAlertIcon, LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
+import { LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
 
 type View =
   | { kind: "form"; notice?: string; initialUrl?: string }
@@ -172,85 +174,7 @@ export function ScanPage({ owner, repo, pollMs = 1000 }: ScanPageProps) {
     );
   }
 
-  return <ScanForm key={view.initialUrl ?? "empty"} initialUrl={view.initialUrl} notice={view.notice} onSubmit={start} />;
-}
-
-function Frame({ children }: { children: React.ReactNode }) {
-  return <section className="page py-6 flex flex-col gap-4">{children}</section>;
-}
-
-function ScanForm({ initialUrl = "", notice, onSubmit }: { initialUrl?: string; notice?: string; onSubmit: (url: string) => Promise<void> }) {
-  const [url, setUrl] = useState(initialUrl);
-  const [busy, setBusy] = useState(false);
-  const [fieldError, setFieldError] = useState<string>();
-  const [problem, setProblem] = useState<string>();
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setFieldError(undefined);
-    setProblem(undefined);
-    setBusy(true);
-    try {
-      await onSubmit(url.trim());
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "invalid_repo_url") {
-        setFieldError(error.message);
-      } else {
-        setProblem(messageOf(error));
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Frame>
-      <div className="flex flex-col gap-1 reading">
-        <h1 className="type-h1">{SCAN.form.title}</h1>
-        <p className="type-body-lg c-muted">{SCAN.form.intro}</p>
-      </div>
-      {(notice || problem) && (
-        <div className="reading">
-          <Notice tone={problem ? "error" : "warning"}>{problem ?? notice}</Notice>
-        </div>
-      )}
-      <form className="flex flex-col gap-3 reading" onSubmit={submit} noValidate>
-        <div className="field">
-          <label className="field-label" htmlFor="repo-url">
-            {SCAN.form.label}
-          </label>
-          <input
-            id="repo-url"
-            className="input input-mono"
-            type="url"
-            inputMode="url"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={SCAN.form.placeholder}
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            aria-invalid={fieldError ? true : undefined}
-            aria-describedby={fieldError ? "repo-url-error" : "repo-url-help"}
-          />
-          {fieldError ? (
-            <p id="repo-url-error" className="field-error" role="alert">
-              <CircleAlertIcon />
-              {fieldError}
-            </p>
-          ) : (
-            <p id="repo-url-help" className="field-helper">
-              {SCAN.form.helper}
-            </p>
-          )}
-        </div>
-        <div>
-          <button type="submit" className="btn btn-primary btn-lg" disabled={busy || url.trim() === ""} aria-busy={busy}>
-            {busy ? SCAN.form.submitting : SCAN.form.submit}
-          </button>
-        </div>
-      </form>
-    </Frame>
-  );
+  return <Connect key={view.initialUrl ?? "empty"} initialUrl={view.initialUrl} notice={view.notice} onSubmit={start} />;
 }
 
 function ErrorView({ message, repoUrl, onRetry }: { message: string; repoUrl?: string; onRetry: (url: string) => Promise<void> }) {
@@ -305,6 +229,7 @@ function Results({
   onTick: (finding: Finding, ticked: boolean) => void;
   onRescan: () => Promise<void>;
 }) {
+  const auth = useAuth();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const unused = scan.counts["unused-package"] + scan.counts["unused-dev-dependency"] + scan.counts["unused-export"];
@@ -358,6 +283,19 @@ function Results({
 
       <div className="reading flex flex-col gap-2">
         {!empty && <Notice tone="warning">{SCAN.results.notice}</Notice>}
+        {!empty && !scan.can_tick && (
+          <Notice tone="warning">
+            {auth.user ? CANNOT_TICK.publicScan : CANNOT_TICK.signedOut}
+            {!auth.user && auth.signInAvailable && (
+              <>
+                {" "}
+                <a className="c-primary" href={signInHref}>
+                  {CONNECT.signedOut.signIn}
+                </a>
+              </>
+            )}
+          </Notice>
+        )}
         {problem && <Notice tone="error">{problem}</Notice>}
         {tickError && <Notice tone="error">{SCAN.results.tickError}</Notice>}
       </div>
@@ -369,7 +307,7 @@ function Results({
         <a className="btn btn-secondary" href="#/scan">
           {SCAN.results.otherRepo}
         </a>
-        {!empty && (
+        {!empty && scan.can_tick && (
           <p className="type-small c-muted" aria-live="polite">
             {plural(ticked, "item", "items")} ticked. {SCAN.results.tickHelp}
           </p>

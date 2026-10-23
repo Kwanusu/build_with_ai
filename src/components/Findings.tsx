@@ -7,12 +7,13 @@ interface FindingsProps {
   onTick: (finding: Finding, ticked: boolean) => void;
 }
 
-function FindingRow({ finding, onTick }: { finding: Finding; onTick: FindingsProps["onTick"] }) {
+function FindingRow({ finding, canTick, onTick }: { finding: Finding; canTick: boolean; onTick: FindingsProps["onTick"] }) {
   const location = finding.line ? `${finding.file_path}:${finding.line}` : finding.file_path;
   const uncertain = finding.confidence === "uncertain";
   return (
     <li className="evidence flex gap-2">
-      {finding.report_only ? (
+      {finding.report_only || !canTick ? (
+        // Lint issues are report only, and items on a scan you don't own can't be ticked.
         <span className="w-5 flex-none" aria-hidden="true" />
       ) : (
         <label className="checkbox">
@@ -65,7 +66,7 @@ export function Findings({ scan, onTick }: FindingsProps) {
             </div>
             <ul className="flex flex-col gap-2 list-none p-0 m-0">
               {rows.map((finding) => (
-                <FindingRow key={finding.id} finding={finding} onTick={onTick} />
+                <FindingRow key={finding.id} finding={finding} canTick={scan.can_tick} onTick={onTick} />
               ))}
             </ul>
           </section>
