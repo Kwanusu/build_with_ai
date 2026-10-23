@@ -5,6 +5,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .db import clean_setting
+
 # backend/lopper.db when run from a checkout. It is git-ignored.
 DEFAULT_DATABASE_PATH = str(Path(__file__).resolve().parents[2] / "lopper.db")
 DEFAULT_FRONTEND_URL = "http://localhost:5173"
@@ -52,7 +54,7 @@ class Config:
     def from_env(cls, **overrides) -> "Config":
         env = os.environ
         config = cls(
-            database=env.get("DATABASE_URL") or env.get("DATABASE_PATH") or DEFAULT_DATABASE_PATH,
+            database=clean_setting(env.get("DATABASE_URL") or env.get("DATABASE_PATH") or "") or DEFAULT_DATABASE_PATH,
             cors_origins=tuple(
                 origin.strip() for origin in env.get("CORS_ORIGINS", ",".join(cls.cors_origins)).split(",") if origin.strip()
             ),

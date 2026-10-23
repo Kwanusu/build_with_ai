@@ -153,8 +153,26 @@ class PostgresDatabase:
 Database = SqliteDatabase | PostgresDatabase
 
 
+# Characters that are invisible but get copied along with an address from a web page.
+INVISIBLE = dict.fromkeys(map(ord, "​‌‍⁠﻿ "))
+
+
+def clean_setting(value: str | Path) -> str:
+    """The setting without stray spaces, quotes or invisible characters."""
+    return str(value).translate(INVISIBLE).strip().strip("\"'").strip()
+
+
 def make_pool(database: str | Path) -> Database:
-    return PostgresDatabase(str(database)) if IS_POSTGRES.match(str(database)) else SqliteDatabase(database)
+    database = clean_setting(database)
+    if IS_POSTGRES.match(database):
+        return PostgresDatabase(database)
+    if "://" in database:
+        # Not echoed back: it may hold a password.
+        raise RuntimeError(
+            "DATABASE_URL must start with postgresql:// (or be the path of a SQLite file). It doesn't. "
+            "Check that the value doesn't include the name, like DATABASE_URL=, at the start."
+        )
+    return SqliteDatabase(database)
 
 
 def pool() -> Database:
