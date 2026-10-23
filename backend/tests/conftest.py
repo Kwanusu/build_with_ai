@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -5,6 +6,9 @@ import pytest
 
 from lopper.api import Config, create_app
 from lopper.api.auth import SESSION_COOKIE, create_session
+
+# Set this to a postgresql:// address to run the whole suite against Postgres. It EMPTIES the tables there.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 
 
 def write_project(root: Path) -> Path:
@@ -82,8 +86,9 @@ def fake_fetch(project, fetched):
 
 @pytest.fixture()
 def make_app(fake_fetch, tmp_path):
-    """Each app gets its own empty SQLite file."""
+    """Each app gets its own empty SQLite file, or empty tables in TEST_DATABASE_URL if that is set."""
     count = 0
+    created = []
 
     def build(fetch=None, github=None, **config):
         nonlocal count
@@ -92,13 +97,24 @@ def make_app(fake_fetch, tmp_path):
             config.setdefault("github_client_id", "client-id")
             config.setdefault("github_client_secret", "client-secret")
             config.setdefault("secret_key", "test-secret-key")
-        return create_app(
-            Config(database_path=str(tmp_path / f"test{count}.db"), scan_inline=config.pop("scan_inline", True), **config),
+        app = create_app(
+            Config(
+                database=TEST_DATABASE_URL or str(tmp_path / f"test{count}.db"),
+                scan_inline=config.pop("scan_inline", True),
+                **config,
+            ),
             fetch=fetch or fake_fetch,
             github=github,
         )
+        if TEST_DATABASE_URL:
+            with app.extensions["lopper_pool"].connection() as conn:
+                conn.execute("TRUNCATE users, repos RESTART IDENTITY CASCADE")
+        created.append(app)
+        return app
 
-    return build
+    yield build
+    for app in created:
+        app.extensions["lopper_pool"].close()
 
 
 @pytest.fixture()

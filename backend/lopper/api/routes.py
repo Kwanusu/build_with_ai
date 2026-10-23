@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import threading
 import time
 from collections import defaultdict, deque
@@ -42,6 +43,21 @@ def service():
     return current_app.extensions["lopper_scans"]
 
 
+def client_address() -> str:
+    """Who is calling, for the rate limit.
+
+    When the site forwards /api to us (Cloudflare Pages), every request arrives from the forwarder. It sends the real
+    address in X-Lopper-Client-IP together with the shared PROXY_SECRET. We believe that header only if the secret
+    matches, so nobody else can pick their own address.
+    """
+    secret = current_app.extensions["lopper_config"].proxy_secret
+    sent = request.headers.get("X-Lopper-Proxy-Secret", "")
+    forwarded = request.headers.get("X-Lopper-Client-IP", "").strip()
+    if secret and forwarded and hmac.compare_digest(sent.encode(), secret.encode()):
+        return forwarded[:64]
+    return request.remote_addr or "unknown"
+
+
 def current_user() -> dict | None:
     """The signed-in user for this request, from the session cookie, or None."""
     if "lopper_user" not in g:
@@ -70,7 +86,7 @@ def create_scan():
         return error(str(problem), "invalid_repo_url", 400)
 
     limiter: RateLimiter = current_app.extensions["lopper_limiter"]
-    if not limiter.allow(request.remote_addr or "unknown"):
+    if not limiter.allow(client_address()):
         return error("That's a lot of scans in a minute. Wait a moment and try again. Nothing has been changed.", "rate_limited", 429)
 
     user = current_user()

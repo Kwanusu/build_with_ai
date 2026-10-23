@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -173,7 +174,7 @@ def test_signing_out_ends_the_session(auth_app):
 def test_an_expired_session_is_signed_out(auth_app):
     client, _ = sign_in(auth_app)
     with auth_app.extensions["lopper_pool"].connection() as conn:
-        conn.execute("UPDATE sessions SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 minute')")
+        conn.execute("UPDATE sessions SET expires_at = ?", (datetime.now(timezone.utc) - timedelta(minutes=1),))
     assert client.get("/api/auth/me").get_json()["user"] is None
 
 

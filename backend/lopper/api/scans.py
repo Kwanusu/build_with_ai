@@ -17,7 +17,7 @@ from pathlib import Path
 from ..repo import RepoError, RepoRef, checkout
 from ..scanner import ScanLimitError, ScanResult, scan_path
 from ..scanner.models import FINDING_TYPES
-from .db import Database, format_time
+from .db import Database, format_time, to_iso
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ FINDING_COLUMNS = "id, type, package, item, file_path, line, evidence, confidenc
 
 
 def _finding(row: dict | None) -> dict | None:
-    """SQLite keeps booleans as 0 and 1; the API says true and false."""
+    """SQLite keeps booleans as 0 and 1; the API says true and false (Postgres already does)."""
     if row is None:
         return None
     return {**row, "report_only": bool(row["report_only"]), "ticked": bool(row["ticked"])}
@@ -116,9 +116,9 @@ class ScanService:
             rows = [
                 (
                     scan_id, f.type, f.package, f.item, f.file_path, f.line, f.evidence, f.confidence, f.language,
-                    int(f.report_only),
+                    f.report_only,
                     # Safe findings start ticked. Uncertain ones and lint issues start unticked.
-                    int(f.confidence == "safe" and not f.report_only),
+                    f.confidence == "safe" and not f.report_only,
                 )
                 for f in result.findings
             ]
@@ -158,8 +158,8 @@ class ScanService:
             "id": scan["id"],
             "status": scan["status"],
             "repo": {"url": scan["url"], "owner": scan["owner"], "name": scan["name"]},
-            "started_at": scan["started_at"],
-            "finished_at": scan["finished_at"],
+            "started_at": to_iso(scan["started_at"]),
+            "finished_at": to_iso(scan["finished_at"]),
             "error": scan["error"],
             "files_scanned": scan["files_scanned"],
             "packages_scanned": scan["packages_scanned"],
@@ -198,6 +198,6 @@ class ScanService:
             if current["report_only"]:
                 return None, "report_only"
             finding = conn.execute(
-                f"UPDATE findings SET ticked = ? WHERE id = ? RETURNING {FINDING_COLUMNS}", (int(ticked), finding_id)
+                f"UPDATE findings SET ticked = ? WHERE id = ? RETURNING {FINDING_COLUMNS}", (ticked, finding_id)
             ).fetchone()
         return _finding(finding), None

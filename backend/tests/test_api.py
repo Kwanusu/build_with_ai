@@ -1,9 +1,10 @@
-import sqlite3
 import time
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from lopper.api.db import INTEGRITY_ERRORS
 from lopper.repo import RepoError
 
 from .conftest import sign_in
@@ -120,8 +121,8 @@ def test_ticking_needs_a_boolean_and_a_real_finding(app):
 def test_the_database_refuses_a_ticked_report_only_row(app):
     post = app.test_client().post("/api/scans", json=REPO).get_json()["scan"]
     with app.extensions["lopper_pool"].connection() as conn:
-        with pytest.raises(sqlite3.IntegrityError):
-            conn.execute("UPDATE findings SET ticked = 1 WHERE scan_id = ? AND report_only", (post["id"],))
+        with pytest.raises(INTEGRITY_ERRORS):
+            conn.execute("UPDATE findings SET ticked = ? WHERE scan_id = ? AND report_only", (True, post["id"]))
 
 
 def test_a_repo_that_cannot_be_cloned_fails_with_a_clear_message(make_app):
@@ -167,8 +168,8 @@ def test_a_stuck_scan_is_replaced_after_the_stale_limit(client, app):
             "INSERT INTO repos (url, owner, name) VALUES ('https://github.com/acme/web-platform', 'acme', 'web-platform') RETURNING id"
         ).fetchone()
         stuck = conn.execute(
-            "INSERT INTO scans (repo_id, status, started_at) VALUES (?, 'running', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')) RETURNING id",
-            (repo["id"],),
+            "INSERT INTO scans (repo_id, status, started_at) VALUES (?, 'running', ?) RETURNING id",
+            (repo["id"], datetime.now(timezone.utc) - timedelta(hours=1)),
         ).fetchone()
     response = post_scan(client)
     assert response.status_code == 202
@@ -208,3 +209,24 @@ def test_cors_allows_the_front_end_origin_only(client):
 def test_oversized_bodies_are_refused(client):
     response = client.post("/api/scans", data="x" * 20_000, content_type="application/json")
     assert response.status_code == 413
+
+
+def test_a_forwarded_client_address_is_trusted_only_with_the_shared_secret(make_app):
+    client = make_app(scans_per_minute=1, proxy_secret="shh").test_client()
+
+    def scan_as(address, secret):
+        return client.post("/api/scans", json=REPO, headers={"X-Lopper-Client-IP": address, "X-Lopper-Proxy-Secret": secret})
+
+    assert scan_as("203.0.113.1", "shh").status_code == 202
+    # A different real client behind the same forwarder has its own allowance.
+    assert scan_as("203.0.113.2", "shh").status_code == 202
+    assert scan_as("203.0.113.1", "shh").status_code == 429
+    # Without the secret the header is ignored, so choosing a new address doesn't dodge the limit.
+    assert scan_as("203.0.113.3", "wrong").status_code == 202
+    assert scan_as("203.0.113.4", "wrong").status_code == 429
+
+
+def test_the_forwarded_address_is_ignored_when_no_secret_is_set(make_app):
+    client = make_app(scans_per_minute=1).test_client()
+    assert client.post("/api/scans", json=REPO, headers={"X-Lopper-Client-IP": "203.0.113.1"}).status_code == 202
+    assert client.post("/api/scans", json=REPO, headers={"X-Lopper-Client-IP": "203.0.113.2"}).status_code == 429

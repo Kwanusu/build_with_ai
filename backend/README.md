@@ -1,6 +1,6 @@
 # Lopper back end
 
-Python, Flask and SQLite. One scanner is shared by three ways to use Lopper:
+Python, Flask, and SQLite (development) or Postgres (production). One scanner is shared by three ways to use Lopper:
 
 - the **`lopper` command** in a terminal,
 - the **web API**, so someone can paste a repo URL online and get a scan,
@@ -24,6 +24,8 @@ That installs the `lopper` command.
 ### The database
 
 Data lives in one SQLite file, `backend/lopper.db` (git-ignored), created on first use. To keep it somewhere else, set `DATABASE_PATH`. Nothing has to be started or installed.
+
+For production, set `DATABASE_URL` to a `postgresql://` address (Supabase works) and install the driver with `pip install -e ".[postgres]"`. The code picks the database from that address. `schema.sql` (SQLite) and `schema.postgres.sql` are twins, so change both together. See [DEPLOY.md](../DEPLOY.md).
 
 ```bash
 lopper db-init                     # creates the tables (safe to run again)
@@ -125,7 +127,7 @@ Not tested against the real GitHub yet: the handshake is covered with a stand-in
 
 ### Settings
 
-Environment variables, all optional (see `.env.example`): `DATABASE_PATH`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from a `.env` file in the current folder, `backend/` or the project root.
+Environment variables, all optional (see `.env.example`): `DATABASE_URL` or `DATABASE_PATH`, `PROXY_SECRET`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from a `.env` file in the current folder, `backend/` or the project root.
 
 ### Safety
 
@@ -143,7 +145,7 @@ Not built yet: opening the pull request.
 python -m pytest
 ```
 
-The API tests use a real SQLite database: each test gets its own empty file in a temporary folder, so there is nothing to start and nothing to clean up.
+The API tests use a real SQLite database: each test gets its own empty file in a temporary folder, so there is nothing to start and nothing to clean up. To run the same tests on Postgres, set `TEST_DATABASE_URL` to an empty Postgres database (for example `postgresql://lopper@localhost:5544/lopper_test`). The tests EMPTY its tables, so never point it at data you care about.
 
 ## Layout
 
@@ -152,5 +154,5 @@ The API tests use a real SQLite database: each test gets its own empty file in a
 | `lopper/scanner/` | The analysers (`js.py`, `python.py`, `golang.py`) and the models |
 | `lopper/repo.py` | Validating a pasted URL and cloning it safely, with or without a GitHub token |
 | `lopper/cli.py` | The `lopper` command |
-| `lopper/api/` | The Flask app, the SQLite schema, the scan service, and sign-in (`auth.py`, `auth_routes.py`, `github.py`) |
+| `lopper/api/` | The Flask app, the schemas (SQLite and Postgres), the scan service, and sign-in (`auth.py`, `auth_routes.py`, `github.py`) |
 | `tests/` | Scanner, repo, CLI and API tests |

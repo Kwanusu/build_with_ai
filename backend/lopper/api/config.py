@@ -12,7 +12,8 @@ DEFAULT_FRONTEND_URL = "http://localhost:5173"
 
 @dataclass(frozen=True)
 class Config:
-    database_path: str = DEFAULT_DATABASE_PATH
+    # A SQLite file path, or a postgresql:// address (for example Supabase).
+    database: str = DEFAULT_DATABASE_PATH
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     scan_workers: int = 2
     scans_per_minute: int = 6
@@ -30,6 +31,8 @@ class Config:
     # Where the browser is sent after sign-in, and the site that is allowed to call the API with cookies.
     frontend_url: str = DEFAULT_FRONTEND_URL
     session_days: int = 30
+    # Set when the site forwards /api to this server (Cloudflare Pages). It lets the forwarder say who the real client is.
+    proxy_secret: str | None = None
     extra: dict = field(default_factory=dict)
 
     @property
@@ -49,7 +52,7 @@ class Config:
     def from_env(cls, **overrides) -> "Config":
         env = os.environ
         config = cls(
-            database_path=env.get("DATABASE_PATH") or DEFAULT_DATABASE_PATH,
+            database=env.get("DATABASE_URL") or env.get("DATABASE_PATH") or DEFAULT_DATABASE_PATH,
             cors_origins=tuple(
                 origin.strip() for origin in env.get("CORS_ORIGINS", ",".join(cls.cors_origins)).split(",") if origin.strip()
             ),
@@ -60,5 +63,6 @@ class Config:
             secret_key=env.get("SECRET_KEY") or None,
             github_scopes=env.get("GITHUB_SCOPES", cls.github_scopes),
             frontend_url=env.get("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/"),
+            proxy_secret=env.get("PROXY_SECRET") or None,
         )
         return replace(config, **overrides) if overrides else config

@@ -1,0 +1,29 @@
+# Render Blueprint for the Lopper API. In Render: New > Blueprint, and pick this repo.
+# The site itself goes on Cloudflare Pages and forwards /api here. See DEPLOY.md.
+services:
+  - type: web
+    name: lopper-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free # Free services sleep when idle, so the first request after a pause is slow. Use starter to avoid that.
+    healthCheckPath: /api/health
+    envVars:
+      # Supabase: Project settings > Database > Connection string > Transaction pooler. Add ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      # Signs the sign-in state and encrypts stored GitHub tokens. Render makes one. Don't change it later,
+      # or everyone has to sign in again.
+      - key: SECRET_KEY
+        generateValue: true
+      # Copy this value into the Pages project too, so the API can tell visitors apart.
+      - key: PROXY_SECRET
+        generateValue: true
+      # The Pages address, for example https://lopper.pages.dev (no trailing slash).
+      - key: FRONTEND_URL
+        sync: false
+      # From your GitHub OAuth app. Leave empty to run without sign-in.
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
