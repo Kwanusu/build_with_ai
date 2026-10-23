@@ -82,7 +82,12 @@ All routes are under `/api`. Errors look like `{"error": "...", "code": "..."}` 
 | `POST /api/scans` | Body `{"repo_url": "https://github.com/owner/repo"}`. Starts a scan and returns `202` with the scan (status `running`). If that repo is already being scanned it returns `200` with the running one |
 | `GET /api/scans/<id>` | The scan with its counts and findings. `?type=unused-export` filters the findings |
 | `GET /api/repos/<owner>/<name>/scan` | The latest scan for a repo |
-| `PATCH /api/findings/<id>` | Body `{"ticked": true}`. Lint issues return `400` |
+| `PATCH /api/findings/<id>` | Body `{"ticked": true}`. Needs sign-in and a scan you own. Lint issues return `400` |
+| `GET /api/auth/me` | `{"user": {...} or null, "sign_in_available": true}` |
+| `GET /api/auth/github/login` | Starts signing in: redirects to GitHub |
+| `GET /api/auth/github/callback` | GitHub sends the person back here. Redirects to the site |
+| `POST /api/auth/logout` | Ends the session |
+| `GET /api/repos` | The signed-in person's repos, from GitHub |
 
 ```bash
 curl -X POST localhost:5000/api/scans -H "Content-Type: application/json" \
@@ -92,11 +97,42 @@ curl localhost:5000/api/scans/1
 
 A scan's `status` is `running`, `done` or `failed`. Poll `GET /api/scans/<id>` until it isn't `running`. A `failed` scan has an `error` written for the person who pasted the URL.
 
-Only the latest scan is kept per repo. Scanning again replaces the old scan and its findings.
+Only the latest scan is kept for each repo and owner. Scanning again replaces your old scan of that repo and its findings.
+
+### Sign in with GitHub
+
+Signing in lets someone scan repos they can access, including private ones, and keep their tick choices. It is off until you configure it. Without it, everything above still works for public repos.
+
+**Create the GitHub OAuth app** (once):
+
+1. On GitHub, open **Settings → Developer settings → OAuth Apps → New OAuth App**.
+2. **Application name:** Lopper (anything you like). **Homepage URL:** `http://localhost:5173`.
+3. **Authorization callback URL:** `http://localhost:5173/api/auth/github/callback`. In development the site and the API share one address because Vite forwards `/api` to Flask. In production use `https://your-site/api/auth/github/callback`.
+4. Register it, then choose **Generate a new client secret**. Copy the secret straight away, because GitHub shows it once.
+
+**Give the secret to the API.** Copy `.env.example` to `backend/.env` and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `SECRET_KEY` (the file explains how to make one). Then restart `lopper serve`. `backend/.env` is git-ignored. Never commit the secret or paste it into chat.
+
+**Who can see what**
+
+- A scan made while signed in belongs to that person. Only they can read or tick it, and anyone else gets "not found".
+- A scan made without signing in is public: anyone can read it, nobody can tick it. Signing in and rescanning gives you your own copy.
+- Each person keeps one scan per repo. A public scan and your own scan of the same repo live side by side.
+
+**How it is kept safe**
+
+- The sign-in uses a random one-time `state`, signed and kept in a short-lived `HttpOnly` cookie, so a forged callback is refused.
+- The session cookie is a random token (`HttpOnly`, `SameSite=Lax`, and `Secure` when the site is on https). The database stores only its hash.
+- GitHub tokens are encrypted at rest with a key made from `SECRET_KEY`. They are passed to `git` through the environment, never the command line, and never appear in a response or an error message.
+- Requests that change something are refused if a browser says they came from a different site (`403`).
+- If GitHub says a token was revoked, every session for that person ends.
+
+**What Lopper asks GitHub for:** `read:user repo` (change it with `GITHUB_SCOPES`). The `repo` scope is what lets it read private repos, and it is also what opening a pull request will need. GitHub lists the permissions on its consent screen. Lopper only reads today.
+
+Not tested against the real GitHub yet: the handshake is covered with a stand-in for GitHub, and checked on a running server up to the redirect to GitHub.
 
 ### Settings
 
-Environment variables, all optional (see `.env.example`): `DATABASE_URL`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`.
+Environment variables, all optional (see `.env.example`): `DATABASE_URL`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from `backend/.env`.
 
 ### Safety
 
@@ -104,9 +140,9 @@ Environment variables, all optional (see `.env.example`): `DATABASE_URL`, `CORS_
 - The repo is shallow-cloned read-only into a temp folder with no prompts, hooks or symlinks, and the folder is deleted afterwards.
 - Nothing from the repo is run, imported or installed. Python is parsed with `ast`.
 - Limits: 20,000 files, 1 MB per file, 400 MB checkout, 90 seconds to clone, 16 KB request bodies, and 6 scans a minute per address (kept in memory, so it is per process).
-- Private repos aren't supported yet. A private repo fails with a clear message.
+- Without signing in, only public repos can be scanned. A private repo fails with a message that points to signing in.
 
-Not built yet: signing in with GitHub and opening the pull request.
+Not built yet: opening the pull request.
 
 ## Tests
 
@@ -121,8 +157,8 @@ The API tests use a real Postgres at `TEST_DATABASE_URL` (default `postgresql://
 | Path | Purpose |
 |---|---|
 | `lopper/scanner/` | The analysers (`js.py`, `python.py`, `golang.py`) and the models |
-| `lopper/repo.py` | Validating a pasted URL and cloning it safely |
+| `lopper/repo.py` | Validating a pasted URL and cloning it safely, with or without a GitHub token |
 | `lopper/cli.py` | The `lopper` command |
-| `lopper/api/` | The Flask app, the Postgres schema and the scan service |
+| `lopper/api/` | The Flask app, the Postgres schema, the scan service, and sign-in (`auth.py`, `auth_routes.py`, `github.py`) |
 | `scripts/dev_db.py` | The throwaway development database |
 | `tests/` | Scanner, repo, CLI and API tests |
