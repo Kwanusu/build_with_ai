@@ -1,14 +1,12 @@
+import sqlite3
 import time
 from contextlib import contextmanager
 
-import psycopg
 import pytest
 
 from lopper.repo import RepoError
 
-from .conftest import requires_database, sign_in
-
-pytestmark = requires_database
+from .conftest import sign_in
 
 REPO = {"repo_url": "https://github.com/acme/web-platform"}
 
@@ -122,8 +120,8 @@ def test_ticking_needs_a_boolean_and_a_real_finding(app):
 def test_the_database_refuses_a_ticked_report_only_row(app):
     post = app.test_client().post("/api/scans", json=REPO).get_json()["scan"]
     with app.extensions["lopper_pool"].connection() as conn:
-        with pytest.raises(psycopg.errors.CheckViolation):
-            conn.execute("UPDATE findings SET ticked = TRUE WHERE scan_id = %s AND report_only", (post["id"],))
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute("UPDATE findings SET ticked = 1 WHERE scan_id = ? AND report_only", (post["id"],))
 
 
 def test_a_repo_that_cannot_be_cloned_fails_with_a_clear_message(make_app):
@@ -157,7 +155,7 @@ def test_a_scan_already_running_is_returned_instead_of_starting_another(client, 
         repo = conn.execute(
             "INSERT INTO repos (url, owner, name) VALUES ('https://github.com/acme/web-platform', 'acme', 'web-platform') RETURNING id"
         ).fetchone()
-        running = conn.execute("INSERT INTO scans (repo_id, status) VALUES (%s, 'running') RETURNING id", (repo["id"],)).fetchone()
+        running = conn.execute("INSERT INTO scans (repo_id, status) VALUES (?, 'running') RETURNING id", (repo["id"],)).fetchone()
     response = post_scan(client)
     assert response.status_code == 200
     assert response.get_json()["scan"]["id"] == running["id"] and response.get_json()["scan"]["status"] == "running"
@@ -169,7 +167,7 @@ def test_a_stuck_scan_is_replaced_after_the_stale_limit(client, app):
             "INSERT INTO repos (url, owner, name) VALUES ('https://github.com/acme/web-platform', 'acme', 'web-platform') RETURNING id"
         ).fetchone()
         stuck = conn.execute(
-            "INSERT INTO scans (repo_id, status, started_at) VALUES (%s, 'running', now() - interval '1 hour') RETURNING id",
+            "INSERT INTO scans (repo_id, status, started_at) VALUES (?, 'running', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')) RETURNING id",
             (repo["id"],),
         ).fetchone()
     response = post_scan(client)

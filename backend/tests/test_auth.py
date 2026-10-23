@@ -5,9 +5,7 @@ import pytest
 from lopper.api.auth import SESSION_COOKIE, STATE_COOKIE, TokenBox, hash_token, new_state, state_matches
 from lopper.api.github import GitHubError
 
-from .conftest import requires_database, sign_in
-
-pytestmark = requires_database
+from .conftest import sign_in
 
 FRONTEND = "http://localhost:5173"
 REPO = {"repo_url": "https://github.com/acme/web-platform"}
@@ -175,7 +173,7 @@ def test_signing_out_ends_the_session(auth_app):
 def test_an_expired_session_is_signed_out(auth_app):
     client, _ = sign_in(auth_app)
     with auth_app.extensions["lopper_pool"].connection() as conn:
-        conn.execute("UPDATE sessions SET expires_at = now() - interval '1 minute'")
+        conn.execute("UPDATE sessions SET expires_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 minute')")
     assert client.get("/api/auth/me").get_json()["user"] is None
 
 
@@ -290,7 +288,7 @@ def test_rescanning_replaces_only_your_own_scan(auth_app):
 def test_a_session_whose_token_can_no_longer_be_read_asks_you_to_sign_in_again(auth_app):
     client, user_id = sign_in(auth_app)
     with auth_app.extensions["lopper_pool"].connection() as conn:
-        conn.execute("UPDATE users SET access_token_encrypted = 'garbage' WHERE id = %s", (user_id,))
+        conn.execute("UPDATE users SET access_token_encrypted = 'garbage' WHERE id = ?", (user_id,))
     response = client.post("/api/scans", json=REPO)
     assert response.status_code == 401 and response.get_json()["code"] == "sign_in_required"
 

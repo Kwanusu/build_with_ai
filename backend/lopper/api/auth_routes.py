@@ -79,7 +79,7 @@ def callback():
     with pool.connection() as conn:
         user = conn.execute(
             """INSERT INTO users (github_id, login, avatar_url, access_token_encrypted)
-               VALUES (%s, %s, %s, %s)
+               VALUES (?, ?, ?, ?)
                ON CONFLICT (github_id) DO UPDATE SET login = EXCLUDED.login, avatar_url = EXCLUDED.avatar_url,
                    access_token_encrypted = EXCLUDED.access_token_encrypted, last_signed_in_at = now()
                RETURNING id""",

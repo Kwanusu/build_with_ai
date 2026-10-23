@@ -13,8 +13,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Local dev Postgres (backend/scripts/dev_db.py)
-.pgdata/
+# Local SQLite database (backend/lopper.db)
+*.db
+*.db-wal
+*.db-shm
 
 # VS Code extension build output
 extension/out/

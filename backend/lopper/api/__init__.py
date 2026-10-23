@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 import re
 from urllib.parse import urlsplit
 
@@ -43,8 +42,7 @@ def create_app(
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
     app.config["JSON_SORT_KEYS"] = False
 
-    pool = make_pool(config.database_url)
-    atexit.register(pool.close)
+    pool = make_pool(config.database_path)
     app.extensions["lopper_config"] = config
     app.extensions["lopper_pool"] = pool
     app.extensions["lopper_limiter"] = RateLimiter(config.scans_per_minute)

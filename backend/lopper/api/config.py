@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from urllib.parse import urlsplit
 
-DEFAULT_DATABASE_URL = "postgresql://lopper@localhost:5544/lopper"
+# backend/lopper.db when run from a checkout. It is git-ignored.
+DEFAULT_DATABASE_PATH = str(Path(__file__).resolve().parents[2] / "lopper.db")
 DEFAULT_FRONTEND_URL = "http://localhost:5173"
 
 
 @dataclass(frozen=True)
 class Config:
-    database_url: str = DEFAULT_DATABASE_URL
+    database_path: str = DEFAULT_DATABASE_PATH
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     scan_workers: int = 2
     scans_per_minute: int = 6
@@ -47,7 +49,7 @@ class Config:
     def from_env(cls, **overrides) -> "Config":
         env = os.environ
         config = cls(
-            database_url=env.get("DATABASE_URL", DEFAULT_DATABASE_URL),
+            database_path=env.get("DATABASE_PATH") or DEFAULT_DATABASE_PATH,
             cors_origins=tuple(
                 origin.strip() for origin in env.get("CORS_ORIGINS", ",".join(cls.cors_origins)).split(",") if origin.strip()
             ),

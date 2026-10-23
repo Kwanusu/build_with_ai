@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from cryptography.fernet import Fernet, InvalidToken
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from psycopg_pool import ConnectionPool
+from .db import Database
 
 SESSION_COOKIE = "lopper_session"
 STATE_COOKIE = "lopper_oauth_state"
@@ -53,35 +53,35 @@ def state_matches(secret_key: str, cookie_value: str | None, state: str | None) 
     return secrets.compare_digest(expected, state)
 
 
-def create_session(pool: ConnectionPool, user_id: int, days: int) -> str:
+def create_session(pool: Database, user_id: int, days: int) -> str:
     token = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(days=days)
     with pool.connection() as conn:
         conn.execute("DELETE FROM sessions WHERE expires_at < now()")
         conn.execute(
-            "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (%s, %s, %s)", (hash_token(token), user_id, expires)
+            "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)", (hash_token(token), user_id, expires)
         )
     return token
 
 
-def user_for_session(pool: ConnectionPool, token: str | None) -> dict | None:
+def user_for_session(pool: Database, token: str | None) -> dict | None:
     if not token:
         return None
     with pool.connection() as conn:
         return conn.execute(
             """SELECT u.id, u.github_id, u.login, u.avatar_url, u.access_token_encrypted
                FROM sessions s JOIN users u ON u.id = s.user_id
-               WHERE s.token_hash = %s AND s.expires_at > now()""",
+               WHERE s.token_hash = ? AND s.expires_at > now()""",
             (hash_token(token),),
         ).fetchone()
 
 
-def end_session(pool: ConnectionPool, token: str | None) -> None:
+def end_session(pool: Database, token: str | None) -> None:
     if token:
         with pool.connection() as conn:
-            conn.execute("DELETE FROM sessions WHERE token_hash = %s", (hash_token(token),))
+            conn.execute("DELETE FROM sessions WHERE token_hash = ?", (hash_token(token),))
 
 
-def end_all_sessions(pool: ConnectionPool, user_id: int) -> None:
+def end_all_sessions(pool: Database, user_id: int) -> None:
     with pool.connection() as conn:
-        conn.execute("DELETE FROM sessions WHERE user_id = %s", (user_id,))
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))

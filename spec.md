@@ -65,6 +65,6 @@ One last challenge before you build: everything depends on the scan being **righ
 - **Front end:** React 19 on Vite, with Tailwind CSS 4. The Tailwind theme is generated from `DESIGN.md`.
 - **Testing:** Vitest with Testing Library, plus a type check and a production build before each commit.
 - **Scope:** Lopper scans JavaScript, TypeScript, Python and Go, in both frontend and backend repos (wider than the first version of this spec, which said JavaScript and TypeScript monorepos only).
-- **Back end:** Python with Flask, and PostgreSQL. It holds the Repos, Scans and Findings tables above. Users and Pull requests come with GitHub sign-in.
+- **Back end:** Python with Flask, and SQLite. It holds the Repos, Scans and Findings tables above. Users and Pull requests come with GitHub sign-in.
 - **Ways to run a scan:** paste a public repo URL into the web API, run `lopper scan` in a terminal, or use the VS Code extension, which runs the same command in VS Code's terminal.
 - **Not built yet:** GitHub sign-in (so private repos work) and opening the pull request.

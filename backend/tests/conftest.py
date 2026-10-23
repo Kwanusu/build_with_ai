@@ -1,28 +1,10 @@
-import os
 from contextlib import contextmanager
 from pathlib import Path
 
-import psycopg
 import pytest
 
 from lopper.api import Config, create_app
 from lopper.api.auth import SESSION_COOKIE, create_session
-
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://lopper@localhost:5544/lopper_test")
-
-
-def _database_available() -> bool:
-    try:
-        with psycopg.connect(TEST_DATABASE_URL, connect_timeout=3):
-            return True
-    except psycopg.Error:
-        return False
-
-
-requires_database = pytest.mark.skipif(
-    not _database_available(),
-    reason=f"Postgres isn't reachable at {TEST_DATABASE_URL}. Start it (see backend/README.md) or set TEST_DATABASE_URL.",
-)
 
 
 def write_project(root: Path) -> Path:
@@ -99,27 +81,24 @@ def fake_fetch(project, fetched):
 
 
 @pytest.fixture()
-def make_app(fake_fetch):
-    created = []
+def make_app(fake_fetch, tmp_path):
+    """Each app gets its own empty SQLite file."""
+    count = 0
 
     def build(fetch=None, github=None, **config):
+        nonlocal count
+        count += 1
         if github is not None:
             config.setdefault("github_client_id", "client-id")
             config.setdefault("github_client_secret", "client-secret")
             config.setdefault("secret_key", "test-secret-key")
-        app = create_app(
-            Config(database_url=TEST_DATABASE_URL, scan_inline=config.pop("scan_inline", True), **config),
+        return create_app(
+            Config(database_path=str(tmp_path / f"test{count}.db"), scan_inline=config.pop("scan_inline", True), **config),
             fetch=fetch or fake_fetch,
             github=github,
         )
-        with app.extensions["lopper_pool"].connection() as conn:
-            conn.execute("TRUNCATE users, repos RESTART IDENTITY CASCADE")
-        created.append(app)
-        return app
 
-    yield build
-    for app in created:
-        app.extensions["lopper_pool"].close()
+    return build
 
 
 @pytest.fixture()
@@ -144,7 +123,7 @@ def sign_in(app, github_id=4242, login="octo", token="gho_existing_token"):
     encrypted = app.extensions["lopper_tokens"].encrypt(token)
     with pool.connection() as conn:
         user = conn.execute(
-            """INSERT INTO users (github_id, login, avatar_url, access_token_encrypted) VALUES (%s, %s, %s, %s)
+            """INSERT INTO users (github_id, login, avatar_url, access_token_encrypted) VALUES (?, ?, ?, ?)
                ON CONFLICT (github_id) DO UPDATE SET login = EXCLUDED.login RETURNING id""",
             (github_id, login, f"https://avatars.example/{login}.png", encrypted),
         ).fetchone()
