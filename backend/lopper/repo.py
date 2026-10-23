@@ -1,11 +1,12 @@
 """Fetching a repo from a pasted URL.
 
-Only public github.com repositories are accepted, so a pasted URL can't point the server at an
-internal address. We clone read-only into a temp folder, never run anything from it, and delete it.
+Only github.com repositories are accepted, so a pasted URL can't point the server at an internal
+address. We clone read-only into a temp folder, never run anything from it, and delete it.
 """
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 import shutil
@@ -69,8 +70,13 @@ def _folder_size(path: Path) -> int:
 
 
 @contextmanager
-def checkout(ref: RepoRef, timeout: int = CLONE_TIMEOUT_SECONDS) -> Iterator[Path]:
-    """Shallow-clone a public repo into a temp folder and delete it afterwards."""
+def checkout(ref: RepoRef, timeout: int = CLONE_TIMEOUT_SECONDS, token: str | None = None) -> Iterator[Path]:
+    """Shallow-clone a repo into a temp folder and delete it afterwards.
+
+    Without a token only public repos work. With a signed-in person's GitHub token, repos they can
+    access work too. The token goes to git through the environment, never the command line, so it
+    can't show up in a process list, and no message here ever includes it.
+    """
     workdir = Path(tempfile.mkdtemp(prefix="lopper-"))
     target = workdir / "repo"
     env = {
@@ -79,6 +85,13 @@ def checkout(ref: RepoRef, timeout: int = CLONE_TIMEOUT_SECONDS) -> Iterator[Pat
         "GIT_ASKPASS": "",
         "GIT_CONFIG_NOSYSTEM": "1",
     }
+    if token:
+        credentials = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+        env.update(
+            GIT_CONFIG_COUNT="1",
+            GIT_CONFIG_KEY_0="http.https://github.com/.extraheader",
+            GIT_CONFIG_VALUE_0=f"AUTHORIZATION: basic {credentials}",
+        )
     command = [
         "git", "-c", "core.symlinks=false", "-c", "core.hooksPath=", "-c", "protocol.allow=never",
         "-c", "protocol.https.allow=always", "clone", "--depth", "1", "--single-branch", "--no-tags",
@@ -94,9 +107,14 @@ def checkout(ref: RepoRef, timeout: int = CLONE_TIMEOUT_SECONDS) -> Iterator[Pat
         except FileNotFoundError as error:
             raise RepoError("Git isn't installed on the machine running Lopper, so we can't fetch the repo.") from error
         if completed.returncode != 0:
+            if token:
+                raise RepoError(
+                    f"We couldn't clone {ref.url}. Check the URL, and that the GitHub account you signed in with can read it. "
+                    "Your code hasn't been changed."
+                )
             raise RepoError(
-                f"We couldn't clone {ref.url}. Lopper can only read public repos right now. "
-                "Check the URL, and that the repo is public. Your code hasn't been changed."
+                f"We couldn't clone {ref.url}. Without signing in, Lopper can only read public repos. "
+                "Check the URL, or sign in with GitHub to scan a private repo. Your code hasn't been changed."
             )
         if _folder_size(target) > MAX_CHECKOUT_BYTES:
             raise RepoError("This repo is larger than we scan at once. Your code hasn't been changed.")
