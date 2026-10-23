@@ -302,6 +302,7 @@ def test_a_state_changing_request_from_another_site_is_refused(auth_app):
     client, _ = sign_in(auth_app)
     response = client.post("/api/scans", json=REPO, headers={"Origin": "https://evil.example"})
     assert response.status_code == 403 and response.get_json()["code"] == "bad_origin"
+    assert "https://evil.example" in response.get_json()["error"]
     assert client.patch("/api/findings/1", json={"ticked": True}, headers={"Origin": "https://evil.example"}).status_code == 403
     assert client.post("/api/auth/logout", headers={"Origin": "https://evil.example"}).status_code == 403
 
@@ -318,3 +319,18 @@ def test_cors_allows_credentials_for_our_site_only(auth_app):
     assert allowed.headers["Access-Control-Allow-Credentials"] == "true"
     other = auth_app.test_client().get("/api/auth/me", headers={"Origin": "https://evil.example"})
     assert "Access-Control-Allow-Origin" not in other.headers
+
+
+def test_the_refusal_names_a_wrong_dev_port_and_says_what_to_do(auth_app):
+    response = auth_app.test_client().post("/api/scans", json=REPO, headers={"Origin": "http://localhost:5174"})
+    message = response.get_json()["error"]
+    assert response.status_code == 403
+    assert "http://localhost:5174" in message and "Open the site at http://localhost:5173" in message
+    assert "CORS_ORIGINS" in message and "Nothing has been changed" in message
+
+
+@pytest.mark.parametrize("origin", ["null", "javascript:alert(1)", "http://<script>", "http://" + "a" * 200])
+def test_an_odd_origin_is_refused_without_being_echoed(auth_app, origin):
+    response = auth_app.test_client().post("/api/scans", json=REPO, headers={"Origin": origin})
+    assert response.status_code == 403
+    assert origin not in response.get_json()["error"]

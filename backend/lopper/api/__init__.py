@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import re
 from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, request
@@ -18,6 +19,19 @@ from .scans import Fetcher, ScanService, default_fetch
 __all__ = ["Config", "create_app"]
 
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _bad_origin_message(origin: str, config: Config) -> str:
+    """Say which address was refused and what to do. The address is echoed only if it looks like a plain origin."""
+    parts = urlsplit(origin)
+    plain = parts.scheme in ("http", "https") and re.fullmatch(r"[A-Za-z0-9.-]{1,80}(:\d{1,5})?", parts.netloc) is not None
+    shown = f"{parts.scheme}://{parts.netloc}" if plain else None
+    if shown and shown == origin:
+        return (
+            f"That request came from {shown}, which this server doesn't allow. Open the site at {config.frontend_url}, "
+            f"or add {shown} to CORS_ORIGINS. Nothing has been changed."
+        )
+    return "That request came from a site we don't recognise. Nothing has been changed."
 
 
 def create_app(
@@ -51,7 +65,7 @@ def create_app(
         if request.method in UNSAFE_METHODS:
             origin = request.headers.get("Origin")
             if origin and origin not in config.allowed_origins:
-                return jsonify({"error": "That request came from a site we don't recognise.", "code": "bad_origin"}), 403
+                return jsonify({"error": _bad_origin_message(origin, config), "code": "bad_origin"}), 403
         return None
 
     app.register_blueprint(bp)
