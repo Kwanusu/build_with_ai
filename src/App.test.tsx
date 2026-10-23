@@ -142,3 +142,15 @@ describe("the scan screen", () => {
   });
 });
 
+describe("the sign-in error page", () => {
+  it("replaces the landing page when GitHub sign-in fails, with its own header action hidden", async () => {
+    window.location.hash = "#/auth/error/access_denied";
+    render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "We couldn't sign you in" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("You chose not to let Lopper in on GitHub");
+    expect(screen.queryByRole("heading", { name: /Prune dead code/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: CTA_LABEL })).toBeNull();
+    expect(window.scrollTo).toHaveBeenCalled();
+  });
+});
+
