@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { forward } from "../functions/api/[[path]]";
+import { forward } from "../worker/forward";
+import { handle } from "../worker/index";
 
 const ENV = { API_ORIGIN: "https://api.example.com", PROXY_SECRET: "shh" };
 
@@ -63,5 +64,21 @@ describe("the /api forwarder", () => {
     const response = await forward(new Request("https://lopper.pages.dev/api/health"), ENV, down);
     expect(response.status).toBe(502);
     expect((await response.json()).error).toContain("hasn't been changed");
+  });
+});
+
+describe("the Worker", () => {
+  const assets = { fetch: async () => new Response("<html>site</html>") };
+
+  it("forwards /api to the API and serves everything else from the built site", async () => {
+    const { calls, send } = fakeApi();
+    const api = await handle(new Request("https://lopper.example.workers.dev/api/scans", { method: "POST", body: "{}" }), { ...ENV, ASSETS: assets }, send);
+    expect(api.status).toBe(200);
+    expect(calls[0].url).toBe("https://api.example.com/api/scans");
+    expect(calls[0].init.method).toBe("POST");
+
+    const page = await handle(new Request("https://lopper.example.workers.dev/"), { ...ENV, ASSETS: assets }, send);
+    expect(await page.text()).toBe("<html>site</html>");
+    expect(calls).toHaveLength(1);
   });
 });

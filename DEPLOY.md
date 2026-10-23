@@ -28,15 +28,22 @@ Do the steps in this order, because each one needs an address from the one befor
 3. After the first deploy, open `https://<your-service>.onrender.com/api/health`. It should say `{"database":true,"status":"ok"}`.
 4. In the service's **Environment** tab, copy the generated `PROXY_SECRET`. You need it in step 3.
 
-## 3. Cloudflare Pages (the site)
+## 3. Cloudflare (the site)
 
-1. **Workers & Pages > Create > Pages > Connect to Git**, choose this repo.
-2. Build settings: command `npm run build`, output folder `dist`. Add the variable `NODE_VERSION` = `22`.
-3. Under **Settings > Variables and Secrets**, add:
-   - `API_ORIGIN`: your Render address, for example `https://lopper-api.onrender.com` (no trailing slash).
-   - `PROXY_SECRET`: the value from Render. Make it a secret.
-4. Leave `VITE_API_URL` unset. The site and `/api` share one address.
-5. Deploy. If the Pages address differs from the `FRONTEND_URL` you gave Render, update it there.
+Cloudflare has two kinds of project that can serve the site. Both work, and both read the same two variables. If your site address ends in `.workers.dev` it is a Worker. If it ends in `.pages.dev` it is a Pages project.
+
+**Worker** (`wrangler.jsonc` and `worker/index.ts`): **Workers & Pages > Create > Import a repository**, choose this repo, and name the Worker `lopper` (it must match `name` in `wrangler.jsonc`). Build command `npm run build`, deploy command `npx wrangler deploy`. Add the variable `NODE_VERSION` = `22` under build variables. Only `/api/*` runs the Worker. Everything else is served straight from `dist/`.
+
+**Pages** (`functions/api/[[path]].ts`): **Workers & Pages > Create > Pages > Connect to Git**, choose this repo. Build command `npm run build`, output folder `dist`, and the variable `NODE_VERSION` = `22`.
+
+Either way, under **Settings > Variables and Secrets** (runtime variables, not build variables), add:
+
+- `API_ORIGIN`: your Render address, for example `https://lopper-api.onrender.com` (no trailing slash, no `/api`).
+- `PROXY_SECRET`: the value from Render. Make it a secret.
+
+Then redeploy, because variables are read at deploy time. Leave `VITE_API_URL` unset: the site and `/api` share one address. If the site's address differs from the `FRONTEND_URL` you gave Render, update it there.
+
+To test, open `<your site>/api/health`. It should show `{"database":true,"status":"ok"}`. A `405 Method Not Allowed` on `/api/scans` means the forwarder isn't running: the site is being served as plain files.
 
 ## 4. GitHub sign-in (optional)
 

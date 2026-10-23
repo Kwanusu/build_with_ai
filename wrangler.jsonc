@@ -1,0 +1,16 @@
+// Cloudflare Workers config for the site. The Worker is called "lopper" (lopper.<account>.workers.dev).
+// Build with `npm run build`, then deploy with `npx wrangler deploy`.
+{
+  "name": "lopper",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Only /api/* runs the Worker. Everything else is served straight from dist/.
+    "run_worker_first": ["/api/*"]
+  },
+  // API_ORIGIN and PROXY_SECRET are set in the dashboard (Settings > Variables and Secrets).
+  // Without this, each deploy would delete the variables that were added there.
+  "keep_vars": true
+}
