@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Generated from DESIGN.md: node <design.md cli> export --format css-tailwind DESIGN.md. Do not edit by hand. */
+/* Generated from DESIGN.md by `npm run tokens`. Do not edit by hand. */
 @theme {
   --color-primary: #36503f;
   --color-accent: #c2913a;
