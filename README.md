@@ -33,7 +33,7 @@ cd backend && lopper db-init && lopper serve   # the API on http://127.0.0.1:500
 npm run dev                                # the site on http://localhost:5173
 ```
 
-Open the site and choose **Connect a GitHub repo**, then paste a public repo URL. In development Vite forwards `/api` to the Flask server, so there is nothing to configure. For a production build, set `VITE_API_URL` to the API's address (see `.env.example`).
+Open the site and choose **Connect a GitHub repo**, then paste a public repo URL. To sign in with GitHub and scan private repos, create a GitHub OAuth app first (see [Sign in with GitHub](backend/README.md#sign-in-with-github)). In development Vite forwards `/api` to the Flask server, so there is nothing to configure. For a production build, set `VITE_API_URL` to the API's address (see `.env.example`).
 
 ## Scripts
 

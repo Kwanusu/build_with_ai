@@ -12,8 +12,10 @@
 - The back end is Python 3.11+ with Flask and PostgreSQL, in `backend/`. It has its own virtual environment at `backend/.venv`. Run its tests with `backend/.venv/Scripts/python -m pytest` from `backend/` (`.venv/bin/python` on macOS and Linux).
 - The API tests need Postgres. `python scripts/dev_db.py start` starts a throwaway cluster on port 5544 (set `PG_BIN` if the Postgres tools aren't on PATH). They empty the `lopper_test` database.
 - The scanner reads code and never changes or runs it. Keep it conservative: when a finding could be wrong, mark it `uncertain` rather than `safe`. Add a test for every false positive you fix.
-- Only public `github.com` repo URLs may be cloned. Keep that check in `backend/lopper/repo.py`, and never pass user input to a shell.
+- Only `github.com` repo URLs may be cloned (public ones, or private ones through the signed-in person's token). Keep that check in `backend/lopper/repo.py`, and never pass user input to a shell.
 - The VS Code extension is in `extension/` and only runs the `lopper` command in the terminal. Build commands in `extension/src/commands.ts` (no VS Code imports) so they can be tested, and quote every argument for the user's shell. Run `npm test` and `npm run compile` there.
+- Sign-in with GitHub (`backend/lopper/api/auth*.py`, `github.py`): a scan made while signed in is private to that person and only they can tick it; a scan made without signing in is public and can't be ticked. Keep that rule, and add a test when you touch it. Never log, return or put a GitHub token or the OAuth secret in a command line, a message or a commit. Keep secrets in the git-ignored `backend/.env`.
+- The front end reads who is signed in from `src/auth.tsx` and never sees a token. Pages must work signed out, and when sign-in isn't set up on the server.
 - Before every commit, run the tests for every part you touched.
 
 ## Design
