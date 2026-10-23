@@ -642,7 +642,7 @@ Voice: an experienced colleague walking the codebase with you. Plain-spoken and 
 
 Tone by moment: onboarding warm and brief; results factual; before a pull request reassuring ("Nothing will be removed until you merge the pull request."); pull request created quiet; push results matter-of-fact ("This pull request leaves 2 unused items and 1 lint issue."); errors honest and steady.
 
-Source files: tokens in `tokens/*.css` (entry `styles.css`), components in `components/`, screens in `ui_kits/`. Logos in `assets/logo/`.
+Source files: the Tailwind theme in `styles.css` (generated from this file with `npm run tokens`), semantic roles and component styles in `src/index.css`, React components in `src/components/`, page copy in `src/content.ts`. Logos are in `assets/logo/`.
 
 ## Colors
 

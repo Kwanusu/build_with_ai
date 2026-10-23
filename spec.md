@@ -57,3 +57,12 @@ You didn't say much about feel directly, but your answers point to two qualities
 ---
 
 One last challenge before you build: everything depends on the scan being **right**. If it flags something as unused that is actually used, your user loses trust after one mistake. Before designing anything else, I'd test the scanner on two or three real monorepos and check how accurate it is.
+---
+
+## Tech stack
+
+- **Language:** TypeScript throughout.
+- **Front end:** React 19 on Vite, with Tailwind CSS 4. The Tailwind theme is generated from `DESIGN.md`.
+- **Testing:** Vitest with Testing Library, plus a type check and a production build before each commit.
+- **Scope:** Lopper scans JavaScript, TypeScript, Python and Go, in both frontend and backend repos (wider than the first version of this spec, which said JavaScript and TypeScript monorepos only).
+- **Not chosen yet:** the back end (GitHub sign-in, scanning and pull request creation) and the database for the tables above.
