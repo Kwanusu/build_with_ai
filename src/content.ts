@@ -1,5 +1,5 @@
 export const CTA_LABEL = "Connect a GitHub repo";
-export const CTA_HREF = "#";
+export const CTA_HREF = "#/scan";
 
 export interface NavLink {
   label: string;
@@ -146,3 +146,42 @@ export const CLOSING = {
 export const COPYRIGHT_HOLDER = "Lopper";
 
 export const FOOTER_NOTE = "Automatic scans report and people remove. Lint issues are report only.";
+
+export const SCAN = {
+  form: {
+    title: "Scan a public GitHub repo",
+    intro: "Paste a repo URL and we'll start scanning. There's nothing to set up. We read the code and never change it.",
+    label: "GitHub repo URL",
+    helper: "Public repos only for now, like https://github.com/owner/repo.",
+    placeholder: "https://github.com/owner/repo",
+    submit: "Scan repo",
+    submitting: "Starting the scan",
+    notScanned: "We haven't scanned that repo yet. Scan it to see what we find.",
+  },
+  scanning: {
+    body: "We're reading the repo. Your code isn't being changed.",
+    slow: "This is taking longer than usual. You can leave this page open, or come back to this address later.",
+  },
+  results: {
+    rescan: "Rescan repo",
+    rescanning: "Starting the scan",
+    otherRepo: "Scan another repo",
+    notice:
+      "Pull requests aren't available yet. Tick what you plan to remove and make the changes yourself. Lopper never removes anything on its own.",
+    lintNote: "Lint issues are report only.",
+    tickHelp: "Items with no use found start ticked. Items that need a closer look start unticked.",
+    tickError: "We couldn't save that change. Nothing has been changed in your code. Try again.",
+  },
+  error: {
+    title: "We couldn't finish that scan",
+    retry: "Scan again",
+    other: "Use a different repo",
+  },
+  groups: [
+    { type: "unused-package", title: "Unused packages" },
+    { type: "unused-dev-dependency", title: "Unused dev dependencies" },
+    { type: "unused-export", title: "Unused exports" },
+    { type: "lint-issue", title: "Lint issues", badge: "Report only" },
+  ] as const,
+  badges: { safe: "No use found", uncertain: "Needs a closer look" },
+};
