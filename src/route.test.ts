@@ -19,3 +19,17 @@ describe("parseHash", () => {
     expect(parseHash(scanHash("acme", "web-platform"))).toEqual({ name: "scan", owner: "acme", repo: "web-platform" });
   });
 });
+
+describe("sign-in error pages", () => {
+  it("reads the reason from the address", () => {
+    expect(parseHash("#/auth/error/access_denied")).toEqual({ name: "auth-error", code: "access_denied" });
+    expect(parseHash("#/auth/error/github_unavailable/")).toEqual({ name: "auth-error", code: "github_unavailable" });
+  });
+
+  it("ignores anything that isn't a plain reason code", () => {
+    for (const hash of ["#/auth/error", "#/auth/error/", "#/auth/error/Bad-Code", "#/auth/error/a/b", "#/auth/error/<script>"]) {
+      expect(parseHash(hash)).toEqual({ name: "landing" });
+    }
+  });
+});
+

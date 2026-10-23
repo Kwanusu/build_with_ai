@@ -154,6 +154,8 @@
   .btn-primary:hover { background: var(--c-accent-hover); }
   .btn-secondary { background: var(--c-card); color: var(--c-primary); border-color: var(--c-border); }
   .btn-secondary:hover { background: var(--c-primary-hover); border-color: var(--c-muted); }
+  .btn-plain { background: transparent; color: var(--c-primary); }
+  .btn-plain:hover { background: var(--c-primary-hover); }
 
   .badge {
     display: inline-flex;
@@ -257,6 +259,7 @@
   .notice-warning .icon { color: var(--c-warning); }
   .notice-error { background: var(--c-error-tint); border-color: var(--c-error-border); }
   .notice-error .icon { color: var(--c-error); }
+  .avatar { display: block; width: var(--spacing-control-height-sm); height: var(--spacing-control-height-sm); border-radius: var(--radius-control); border: 1px solid var(--c-border); object-fit: cover; }
   .icon-md { display: inline-flex; width: 20px; height: 20px; }
   .icon-md .icon { width: 20px; height: 20px; }
 

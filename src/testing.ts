@@ -1,4 +1,5 @@
-import type { Finding, FindingType, Scan } from "./api";
+import type { Finding, FindingType, RepoSummary, Scan } from "./api";
+import type { AuthValue } from "./auth";
 
 let nextId = 1;
 
@@ -33,6 +34,7 @@ export function scan(overrides: Partial<Scan> = {}, findings: Finding[] = []): S
     packages_scanned: 12,
     languages: ["javascript"],
     counts,
+    can_tick: true,
     findings,
     ...overrides,
   };
@@ -56,3 +58,31 @@ export function mockApi(handlers: Record<string, Handler>) {
   vi.stubGlobal("fetch", fetchMock);
   return { calls, fetchMock };
 }
+
+
+export function repoSummary(overrides: Partial<RepoSummary> = {}): RepoSummary {
+  return {
+    full_name: "octo/web",
+    owner: "octo",
+    name: "web",
+    private: false,
+    description: null,
+    language: "TypeScript",
+    pushed_at: "2026-10-20T10:00:00Z",
+    ...overrides,
+  };
+}
+
+/** A value for AuthContext.Provider in tests. */
+export function authValue(overrides: Partial<AuthValue> = {}): AuthValue {
+  return {
+    status: "ready",
+    user: null,
+    signInAvailable: false,
+    refresh: vi.fn(async () => {}),
+    signOut: vi.fn(async () => {}),
+    ...overrides,
+  };
+}
+
+export const OCTO = { login: "octo", avatar_url: "https://avatars.example/octo.png" };

@@ -26,7 +26,29 @@ export interface Scan {
   packages_scanned: number;
   languages: string[];
   counts: Record<FindingType, number>;
+  /** True only for the person who made the scan while signed in. */
+  can_tick: boolean;
   findings: Finding[];
+}
+
+export interface User {
+  login: string;
+  avatar_url: string | null;
+}
+
+export interface Me {
+  user: User | null;
+  sign_in_available: boolean;
+}
+
+export interface RepoSummary {
+  full_name: string;
+  owner: string;
+  name: string;
+  private: boolean;
+  description: string | null;
+  language: string | null;
+  pushed_at: string | null;
 }
 
 /** An error from the API (or from reaching it). `message` is written to be shown to the person. */
@@ -47,7 +69,11 @@ const BASE: string = import.meta.env.VITE_API_URL ?? "";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${BASE}/api${path}`, { headers: { "Content-Type": "application/json" }, ...init });
+    response = await fetch(`${BASE}/api${path}`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include", // the sign-in cookie
+      ...init,
+    });
   } catch {
     throw new ApiError(
       "We couldn't reach the Lopper server. Check that it's running, then try again. Nothing has been changed.",
@@ -77,4 +103,19 @@ export async function getLatestScan(owner: string, name: string): Promise<Scan> 
 
 export async function setTicked(findingId: number, ticked: boolean): Promise<Finding> {
   return (await request<{ finding: Finding }>(`/findings/${findingId}`, { method: "PATCH", body: JSON.stringify({ ticked }) })).finding;
+}
+
+/** Where the "Sign in with GitHub" link goes. The server sends the browser on to GitHub and back. */
+export const signInHref = `${BASE}/api/auth/github/login`;
+
+export async function getMe(): Promise<Me> {
+  return request<Me>("/auth/me");
+}
+
+export async function signOut(): Promise<void> {
+  await request<{ ok: boolean }>("/auth/logout", { method: "POST" });
+}
+
+export async function listRepos(): Promise<RepoSummary[]> {
+  return (await request<{ repos: RepoSummary[] }>("/repos")).repos;
 }

@@ -153,6 +153,7 @@ export const SCAN = {
     intro: "Paste a repo URL and we'll start scanning. There's nothing to set up. We read the code and never change it.",
     label: "GitHub repo URL",
     helper: "Public repos only for now, like https://github.com/owner/repo.",
+    helperSignedIn: "Any repo your GitHub account can read, like https://github.com/owner/repo.",
     placeholder: "https://github.com/owner/repo",
     submit: "Scan repo",
     submitting: "Starting the scan",
@@ -184,4 +185,54 @@ export const SCAN = {
     { type: "lint-issue", title: "Lint issues", badge: "Report only" },
   ] as const,
   badges: { safe: "No use found", uncertain: "Needs a closer look" },
+};
+
+export const CONNECT = {
+  signedOut: {
+    title: "Connect a GitHub repo",
+    intro:
+      "Sign in with GitHub to scan any repo you can access, including private ones, and keep your choices. We read the code and never change it.",
+    signIn: "Sign in with GitHub",
+    permissions: "GitHub will show you what Lopper is asking for before you agree.",
+    orPublic: "Or scan a public repo",
+  },
+  picker: {
+    title: "Choose a repo to scan",
+    intro: "Pick one of your repos, or paste a repo URL below.",
+    filterLabel: "Filter your repos",
+    filterPlaceholder: "Search by name",
+    scan: "Scan",
+    starting: "Starting",
+    loading: "Loading your repos",
+    empty: "We couldn't find any repos on your account. Paste a repo URL below instead.",
+    noMatches: "No repos match that. Try part of the name.",
+    private: "Private",
+    retry: "Try again",
+    pasteTitle: "Or paste a repo URL",
+  },
+};
+
+export const ACCOUNT = {
+  signOut: "Sign out",
+  signingOut: "Signing out",
+  signedInAs: "Signed in as",
+};
+
+export const AUTH_ERROR = {
+  title: "We couldn't sign you in",
+  retry: "Sign in with GitHub",
+  publicRepo: "Scan a public repo",
+  messages: {
+    access_denied: "You chose not to let Lopper in on GitHub, so you're not signed in. Nothing has been changed.",
+    invalid_state: "That sign-in didn't match the one we started, or it took too long. Nothing has been changed. Try again.",
+    invalid_code: "GitHub didn't accept that sign-in. Nothing has been changed. Try again.",
+    github_unavailable: "We couldn't reach GitHub to finish signing you in. Nothing has been changed. Try again in a moment.",
+    not_configured: "Sign-in with GitHub isn't set up on this server yet. You can still scan a public repo.",
+  } as Record<string, string>,
+  fallback: "We couldn't sign you in. Nothing has been changed. Try again.",
+};
+
+export const CANNOT_TICK = {
+  signedOut: "Sign in with GitHub to tick items and keep your choices.",
+  publicScan: "This is a public scan, so items can't be ticked on it. Rescan to get your own copy that you can tick.",
 };
