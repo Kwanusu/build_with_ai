@@ -6,7 +6,7 @@ import pytest
 
 from lopper.repo import RepoError
 
-from .conftest import requires_database
+from .conftest import requires_database, sign_in
 
 pytestmark = requires_database
 
@@ -92,7 +92,8 @@ def test_latest_scan_for_a_repo(client):
     assert client.get("/api/repos/acme/bad name/scan").status_code == 400
 
 
-def test_ticking_a_finding(client):
+def test_ticking_a_finding(app):
+    client, _ = sign_in(app)
     findings = post_scan(client).get_json()["scan"]["findings"]
     uncertain = next(f for f in findings if f["confidence"] == "uncertain" and not f["report_only"])
     response = client.patch(f"/api/findings/{uncertain['id']}", json={"ticked": True})
@@ -101,7 +102,8 @@ def test_ticking_a_finding(client):
     assert again.get_json()["finding"]["ticked"] is False
 
 
-def test_lint_issues_cannot_be_ticked(client):
+def test_lint_issues_cannot_be_ticked(app):
+    client, _ = sign_in(app)
     findings = post_scan(client).get_json()["scan"]["findings"]
     lint = next(f for f in findings if f["type"] == "lint-issue")
     response = client.patch(f"/api/findings/{lint['id']}", json={"ticked": True})
@@ -109,7 +111,8 @@ def test_lint_issues_cannot_be_ticked(client):
     assert "report only" in response.get_json()["error"]
 
 
-def test_ticking_needs_a_boolean_and_a_real_finding(client):
+def test_ticking_needs_a_boolean_and_a_real_finding(app):
+    client, _ = sign_in(app)
     scan = post_scan(client).get_json()["scan"]
     finding_id = scan["findings"][0]["id"]
     assert client.patch(f"/api/findings/{finding_id}", json={"ticked": "yes"}).status_code == 400
@@ -125,7 +128,7 @@ def test_the_database_refuses_a_ticked_report_only_row(app):
 
 def test_a_repo_that_cannot_be_cloned_fails_with_a_clear_message(make_app):
     @contextmanager
-    def private_repo(ref):
+    def private_repo(ref, token=None):
         raise RepoError(f"We couldn't clone {ref.url}. Lopper can only read public repos right now. Your code hasn't been changed.")
         yield  # pragma: no cover
 
@@ -140,7 +143,7 @@ def test_a_repo_that_cannot_be_cloned_fails_with_a_clear_message(make_app):
 
 def test_an_unexpected_crash_is_reported_without_leaking_details(make_app):
     @contextmanager
-    def crashing(ref):
+    def crashing(ref, token=None):
         raise RuntimeError("secret internal path /srv/x")
         yield  # pragma: no cover
 

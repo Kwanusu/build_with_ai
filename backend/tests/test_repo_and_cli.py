@@ -159,3 +159,63 @@ def test_cli_reports_a_missing_folder(tmp_path, capsys):
 def test_cli_rejects_a_bad_url_without_cloning(capsys):
     assert main(["scan", "--url", "https://evil.example/x/y"]) == 2
     assert "doesn't look like a GitHub repo URL" in capsys.readouterr().err
+
+
+# ---------- cloning with a signed-in person's token ----------
+
+
+def test_the_token_goes_through_the_environment_never_the_command_line(monkeypatch):
+    import base64
+
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen["env"] = kwargs["env"]
+        Path(command[-1]).mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(repo.subprocess, "run", fake_run)
+    with repo.checkout(RepoRef("octo", "private-web"), token="gho_secret_value"):
+        pass
+    assert not any("gho_secret_value" in part for part in seen["command"])
+    assert not any("gho_secret_value" in part or "x-access-token" in part for part in seen["command"])
+    header = seen["env"]["GIT_CONFIG_VALUE_0"]
+    assert header.startswith("AUTHORIZATION: basic ")
+    assert base64.b64decode(header.split()[-1]).decode() == "x-access-token:gho_secret_value"
+    assert seen["env"]["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+
+
+def test_no_token_means_no_credentials_are_sent(monkeypatch):
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["env"] = kwargs["env"]
+        Path(command[-1]).mkdir(parents=True)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(repo.subprocess, "run", fake_run)
+    monkeypatch.delenv("GIT_CONFIG_COUNT", raising=False)
+    with repo.checkout(RepoRef("octo", "web")):
+        pass
+    assert "GIT_CONFIG_VALUE_0" not in seen["env"]
+
+
+def test_a_failed_clone_never_repeats_the_token(monkeypatch):
+    monkeypatch.setattr(
+        repo.subprocess, "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 128, "", "fatal: could not read from https://x-access-token:gho_secret_value@github.com/"),
+    )
+    with pytest.raises(RepoError) as error:
+        with repo.checkout(RepoRef("octo", "private-web"), token="gho_secret_value"):
+            pass
+    assert "gho_secret_value" not in str(error.value)
+    assert "account you signed in with" in str(error.value)
+
+
+def test_without_a_token_the_message_points_to_signing_in(monkeypatch):
+    monkeypatch.setattr(repo.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 128, "", ""))
+    with pytest.raises(RepoError) as error:
+        with repo.checkout(RepoRef("octo", "private-web")):
+            pass
+    assert "sign in with GitHub" in str(error.value) and "hasn't been changed" in str(error.value)
