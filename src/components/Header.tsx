@@ -2,7 +2,7 @@ import { CTA_HREF, CTA_LABEL, NAV_LINKS } from "../content";
 import { Button } from "./ui";
 import { Logo } from "./Logo";
 
-export function Header() {
+export function Header({ showAction = true }: { showAction?: boolean }) {
   return (
     <header className="bg-page sticky top-0 z-10 border-b rule">
       <div className="page flex items-center justify-between h-topbar-height">
@@ -17,9 +17,13 @@ export function Header() {
             </a>
           ))}
         </nav>
-        <Button href={CTA_HREF} size="sm">
-          {CTA_LABEL}
-        </Button>
+        {showAction ? (
+          <Button href={CTA_HREF} size="sm">
+            {CTA_LABEL}
+          </Button>
+        ) : (
+          <span aria-hidden="true" />
+        )}
       </div>
     </header>
   );

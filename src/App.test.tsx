@@ -1,6 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { App } from "./App";
 import { CTA_LABEL, NAV_LINKS } from "./content";
+
+afterEach(() => {
+  window.location.hash = "";
+});
 
 describe("landing page", () => {
   it("has one h1 with the headline", () => {
@@ -21,6 +25,13 @@ describe("landing page", () => {
   it("offers the connect action in the header, hero and closing section", () => {
     render(<App />);
     expect(screen.getAllByRole("link", { name: CTA_LABEL })).toHaveLength(3);
+  });
+
+  it("sends every connect button to the scan screen", () => {
+    render(<App />);
+    for (const link of screen.getAllByRole("link", { name: CTA_LABEL })) {
+      expect(link).toHaveAttribute("href", "#/scan");
+    }
   });
 
   it("links every nav item to a section that exists", () => {
@@ -102,3 +113,32 @@ describe("landing page", () => {
     }
   });
 });
+
+describe("the scan screen", () => {
+  it("replaces the landing page when the address is #/scan, without a second connect button", async () => {
+    window.location.hash = "#/scan";
+    const { container } = render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Scan a public GitHub repo" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Prune dead code/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: CTA_LABEL })).toBeNull();
+    expect(container.querySelectorAll(".btn-primary")).toHaveLength(1); // the one main action: Scan repo
+    expect(container.querySelector("footer")).not.toBeNull();
+  });
+
+  it("switches between the landing page and the scan screen as the address changes", async () => {
+    render(<App />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Prune dead code");
+    act(() => {
+      window.location.hash = "#/scan";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(await screen.findByRole("heading", { level: 1, name: "Scan a public GitHub repo" })).toBeInTheDocument();
+    expect(window.scrollTo).toHaveBeenCalled();
+    act(() => {
+      window.location.hash = "#how";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent("Prune dead code");
+  });
+});
+
