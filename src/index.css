@@ -1,0 +1,198 @@
+@import "../styles.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Semantic roles. Every value comes from the tokens in styles.css, which is exported from DESIGN.md. */
+:root {
+  --c-page: var(--color-background);
+  --c-card: var(--color-surface);
+  --c-text: var(--color-text);
+  --c-muted: var(--color-text-secondary);
+  --c-border: var(--color-border);
+  --c-primary: var(--color-primary);
+  --c-primary-tint: var(--color-primary-tint);
+  --c-primary-hover: var(--color-primary-hover);
+  --c-accent: var(--color-accent);
+  --c-accent-hover: var(--color-accent-hover);
+  --c-on-accent: var(--color-on-accent);
+  --c-success: var(--color-success);
+  --c-success-tint: var(--color-success-tint);
+  --c-warning: var(--color-warning);
+  --c-warning-tint: var(--color-warning-tint);
+  --c-on-primary: var(--color-background);
+}
+
+[data-theme="dark"] {
+  --c-page: var(--color-dark-background);
+  --c-card: var(--color-dark-surface);
+  --c-text: var(--color-dark-text);
+  --c-muted: var(--color-dark-text-secondary);
+  --c-border: var(--color-dark-border);
+  --c-primary: var(--color-dark-primary);
+  --c-primary-tint: var(--color-dark-primary-tint);
+  --c-primary-hover: var(--color-dark-primary-hover);
+  --c-accent: var(--color-dark-accent);
+  --c-accent-hover: var(--color-dark-accent-hover);
+  --c-on-accent: var(--color-dark-on-accent);
+  --c-success: var(--color-dark-success);
+  --c-success-tint: var(--color-dark-success-tint);
+  --c-warning: var(--color-dark-warning);
+  --c-warning-tint: var(--color-dark-warning-tint);
+  --c-on-primary: var(--color-dark-background);
+}
+
+@layer base {
+  html {
+    background: var(--c-page);
+    color: var(--c-text);
+    font-family: var(--font-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: var(--text-body);
+    line-height: 1.5;
+    letter-spacing: var(--tracking-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-primary);
+    outline-offset: 2px;
+  }
+  h1, h2, h3, h4 {
+    color: var(--c-primary);
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Type roles, from the typography tokens in DESIGN.md. */
+  .type-display { font-family: var(--font-display), system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 48px; font-weight: 700; line-height: 1.11; letter-spacing: -0.025em; }
+  .type-h1 { font-family: var(--font-h1), system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 36px; font-weight: 700; line-height: 1.11; letter-spacing: -0.025em; }
+  .type-h2 { font-family: var(--font-h2), system-ui, -apple-system, "Segoe UI", sans-serif; font-size: var(--text-h2); font-weight: 600; line-height: 1.11; letter-spacing: -0.025em; }
+  .type-h3 { font-family: var(--font-h3), system-ui, -apple-system, "Segoe UI", sans-serif; font-size: var(--text-h3); font-weight: 600; line-height: 1.4; letter-spacing: 0.025em; }
+  .type-h4 { font-family: var(--font-h4), system-ui, -apple-system, "Segoe UI", sans-serif; font-size: var(--text-h4); font-weight: 600; line-height: 1.56; letter-spacing: 0.025em; }
+  .type-body-lg { font-size: var(--text-body-lg); line-height: 1.56; letter-spacing: 0.025em; }
+  .type-label { font-size: var(--text-label); font-weight: 500; line-height: 1.43; letter-spacing: 0.025em; }
+  .type-small { font-size: var(--text-small); line-height: 1.43; letter-spacing: 0.025em; }
+  .type-caption { font-size: var(--text-caption); line-height: 1.5; letter-spacing: 0.025em; }
+  .type-code { font-family: var(--font-code), ui-monospace, Menlo, Consolas, monospace; font-size: var(--text-code); line-height: 1.43; letter-spacing: normal; }
+  @media (min-width: 640px) {
+    .type-display { font-size: var(--text-display); line-height: 1; }
+    .type-h1 { font-size: var(--text-h1); }
+  }
+
+  .page {
+    max-width: var(--spacing-width-page);
+    margin-inline: auto;
+    padding-inline: var(--spacing-2);
+  }
+  @media (min-width: 640px) {
+    .page { padding-inline: var(--spacing-4); }
+  }
+  @media (min-width: 1100px) {
+    .page { padding-inline: var(--spacing-control-height-md); }
+  }
+  .reading { max-width: var(--spacing-width-reading); }
+
+  .c-primary { color: var(--c-primary); }
+  .c-muted { color: var(--c-muted); }
+  .c-text { color: var(--c-text); }
+  .bg-page { background: var(--c-page); }
+  .rule { border-color: var(--c-border); }
+
+  .card {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-card);
+    padding: var(--spacing-card-padding);
+  }
+
+  .evidence {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-card);
+    padding: var(--spacing-2);
+    color: var(--c-text);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-1);
+    height: var(--spacing-control-height-md);
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font-size: var(--text-button);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.025em;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 200ms cubic-bezier(.22,.61,.36,1), border-color 200ms cubic-bezier(.22,.61,.36,1);
+  }
+  .btn-sm { height: var(--spacing-control-height-sm); padding: 0 var(--spacing-2); }
+  .btn-lg { height: var(--spacing-control-height-lg); padding: 0 var(--spacing-3); }
+  .btn-primary { background: var(--c-accent); color: var(--c-on-accent); }
+  .btn-primary:hover { background: var(--c-accent-hover); }
+  .btn-secondary { background: var(--c-card); color: var(--c-primary); border-color: var(--c-border); }
+  .btn-secondary:hover { background: var(--c-primary-hover); border-color: var(--c-muted); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    height: 26px;
+    padding: 0 var(--spacing-1);
+    border: 1px solid currentColor;
+    border-radius: var(--radius-tag);
+    font-size: var(--text-label);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.025em;
+  }
+  .badge-success { color: var(--c-success); background: var(--c-success-tint); }
+  .badge-warning { color: var(--c-warning); background: var(--c-warning-tint); }
+  .badge-neutral { color: var(--c-muted); border-color: var(--c-border); }
+
+  .check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-tag);
+    border: 1.5px solid var(--c-muted);
+    background: var(--c-card);
+    color: var(--c-on-primary);
+  }
+  .check-on { background: var(--c-primary); border-color: var(--c-primary); }
+
+  .nav-link {
+    color: var(--c-muted);
+    font-size: var(--text-label);
+    font-weight: 500;
+    line-height: 1.43;
+    letter-spacing: 0.025em;
+    text-decoration: none;
+    transition: color 200ms cubic-bezier(.22,.61,.36,1);
+  }
+  .nav-link:hover { color: var(--c-primary); }
+
+  /* Logo sizes keep the supplied artwork above its minimum width: wordmark 120px, lockup 140px. */
+  .logo { display: inline-flex; align-items: center; }
+  .logo img { display: block; width: auto; }
+  .logo-wordmark img, .logo-lockup img { height: var(--spacing-control-height-sm); }
+  .logo img.logo-dark { display: none; }
+  [data-theme="dark"] .logo img.logo-light { display: none; }
+  [data-theme="dark"] .logo img.logo-dark { display: block; }
+
+  .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+}
