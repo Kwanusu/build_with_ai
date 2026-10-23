@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lopper"
+version = "0.1.0"
+description = "Finds unused packages, exports and dev dependencies, and reports lint issues. Reads code, never changes it."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0",
+  "flask-cors>=4.0",
+  "psycopg[binary,pool]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+prod = ["gunicorn>=22"]
+
+[project.scripts]
+lopper = "lopper.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lopper*"]
+
+[tool.setuptools.package-data]
+"lopper.api" = ["schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
