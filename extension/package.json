@@ -1,0 +1,103 @@
+{
+  "name": "lopper-vscode",
+  "displayName": "Lopper",
+  "description": "Find unused packages, exports and dev dependencies with the evidence, from the VS Code terminal. Reads code and never changes it.",
+  "version": "0.1.0",
+  "publisher": "kwanusu",
+  "license": "UNLICENSED",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kwanusu/build_with_ai.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "unused code",
+    "dead code",
+    "dependencies",
+    "lint"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "lopper.scanWorkspace",
+        "title": "Scan this workspace",
+        "category": "Lopper"
+      },
+      {
+        "command": "lopper.scanFolder",
+        "title": "Scan this folder with Lopper",
+        "category": "Lopper"
+      },
+      {
+        "command": "lopper.scanRepoUrl",
+        "title": "Scan a GitHub repo URL",
+        "category": "Lopper"
+      },
+      {
+        "command": "lopper.saveReport",
+        "title": "Scan this workspace and save a JSON report",
+        "category": "Lopper"
+      },
+      {
+        "command": "lopper.checkInstall",
+        "title": "Check that the lopper command works",
+        "category": "Lopper"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "lopper.scanFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation@99"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Lopper",
+      "properties": {
+        "lopper.command": {
+          "type": "string",
+          "default": "lopper",
+          "markdownDescription": "The command that runs Lopper in the terminal. Change it if `lopper` isn't on your PATH, for example `python -m lopper.cli` or the full path to the executable."
+        },
+        "lopper.includeLint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include lint issues in the report. They are report only either way."
+        },
+        "lopper.reportFile": {
+          "type": "string",
+          "default": "lopper-report.json",
+          "description": "File name for the JSON report, relative to the folder that was scanned."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p .",
+    "watch": "tsc -p . --watch",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "package": "vsce package --no-dependencies --skip-license"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/vscode": "1.90",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
