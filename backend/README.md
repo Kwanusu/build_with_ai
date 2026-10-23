@@ -110,7 +110,7 @@ Signing in lets someone scan repos they can access, including private ones, and 
 3. **Authorization callback URL:** `http://localhost:5173/api/auth/github/callback`. In development the site and the API share one address because Vite forwards `/api` to Flask. In production use `https://your-site/api/auth/github/callback`.
 4. Register it, then choose **Generate a new client secret**. Copy the secret straight away, because GitHub shows it once.
 
-**Give the secret to the API.** Copy `.env.example` to `backend/.env` and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `SECRET_KEY` (the file explains how to make one). Then restart `lopper serve`. `backend/.env` is git-ignored. Never commit the secret or paste it into chat.
+**Give the secret to the API.** Copy `.env.example` to `.env` (in `backend/` or the project root, either works) and fill in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` and `SECRET_KEY` (the file explains how to make one). Then restart `lopper serve`. `.env` is git-ignored. Never commit the secret or paste it into chat.
 
 **Who can see what**
 
@@ -132,7 +132,7 @@ Not tested against the real GitHub yet: the handshake is covered with a stand-in
 
 ### Settings
 
-Environment variables, all optional (see `.env.example`): `DATABASE_URL`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from `backend/.env`.
+Environment variables, all optional (see `.env.example`): `DATABASE_URL`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from a `.env` file in the current folder, `backend/` or the project root.
 
 ### Safety
 

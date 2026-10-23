@@ -6,8 +6,19 @@ import os
 from pathlib import Path
 
 
-def load_dotenv(path: str | Path = ".env") -> list[str]:
-    """Set variables from `path` unless they are already set. Returns the names it set."""
+def load_dotenv(path: str | Path | None = None) -> list[str]:
+    """Set variables from a .env file unless they are already set. Returns the names it set.
+
+    With no `path` it reads `.env` in the current folder, then in `backend/`, then in the project root,
+    so the file can live wherever is handiest. Earlier files win over later ones.
+    """
+    if path is None:
+        here = Path(__file__).resolve().parent.parent  # backend/
+        loaded: list[str] = []
+        for candidate in (Path(".env"), here / ".env", here.parent / ".env"):
+            if candidate.is_file():
+                loaded += [name for name in load_dotenv(candidate) if name not in loaded]
+        return loaded
     file = Path(path)
     if not file.is_file():
         return []

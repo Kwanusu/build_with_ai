@@ -31,3 +31,12 @@ def test_a_variable_you_already_set_wins(tmp_path, monkeypatch):
 
 def test_a_missing_file_is_fine(tmp_path):
     assert load_dotenv(tmp_path / "nope.env") == []
+
+
+def test_with_no_path_it_finds_the_file_in_the_current_folder(tmp_path, monkeypatch):
+    monkeypatch.delenv("LOP_CWD", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("LOP_CWD=found" + chr(10), encoding="utf-8")
+    assert "LOP_CWD" in load_dotenv()
+    assert os.environ["LOP_CWD"] == "found"
+    monkeypatch.delenv("LOP_CWD")
