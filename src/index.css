@@ -285,5 +285,10 @@
     border-radius: 50%;
     animation: lopper-spin 900ms linear infinite;
   }
+  .spinner-lg {
+    width: var(--spacing-control-height-md);
+    height: var(--spacing-control-height-md);
+    border-width: 3px;
+  }
   @keyframes lopper-spin { to { transform: rotate(360deg); } }
 }

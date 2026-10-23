@@ -85,8 +85,8 @@ export function LeafIcon() {
   );
 }
 
-export function Spinner() {
-  return <span className="spinner" aria-hidden="true" />;
+export function Spinner({ large = false }: { large?: boolean }) {
+  return <span className={large ? "spinner spinner-lg" : "spinner"} aria-hidden="true" />;
 }
 
 type NoticeTone = "success" | "warning" | "error";

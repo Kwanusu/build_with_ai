@@ -96,6 +96,7 @@ describe("a running scan", () => {
     render(<ScanPage {...REPO} pollMs={0} />);
     expect(await screen.findByRole("heading", { level: 1, name: "Scanning acme/web-platform" })).toBeInTheDocument();
     expect(screen.getByText("We're reading the repo. Your code isn't being changed.")).toBeInTheDocument();
+    expect(screen.getByRole("status").querySelector(".spinner-lg")).not.toBeNull();
     expect(await screen.findByRole("heading", { level: 1, name: /Found 1 unused item/ })).toBeInTheDocument();
     expect(polls).toBe(2);
   });

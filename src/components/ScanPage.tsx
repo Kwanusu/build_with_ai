@@ -146,11 +146,10 @@ export function ScanPage({ owner, repo, pollMs = 1000 }: ScanPageProps) {
   if (view.kind === "scanning") {
     return (
       <Frame>
-        <div className="flex flex-col gap-2 reading" role="status">
-          <div className="flex items-center gap-1">
-            <Spinner />
-            <p className="type-code c-muted">{view.repo}</p>
-          </div>
+        <div className="flex flex-col items-start gap-2 reading" role="status">
+          <span className="disc">
+            <Spinner large />
+          </span>
           <h1 className="type-h1">Scanning {view.repo}</h1>
           <p className="type-body-lg c-muted">{SCAN.scanning.body}</p>
           {view.slow && <p className="type-small c-muted">{SCAN.scanning.slow}</p>}
