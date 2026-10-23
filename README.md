@@ -7,7 +7,7 @@ This repository holds the design system, the landing page, the Python back end a
 | Part | Folder | Docs |
 |---|---|---|
 | Landing page (React) | `src/` | this file |
-| Scanner, `lopper` command and web API (Flask and SQLite) | `backend/` | [backend/README.md](backend/README.md) |
+| Scanner, `lopper` command and web API (Flask; SQLite or Postgres) | `backend/` | [backend/README.md](backend/README.md) |
 | VS Code extension | `extension/` | [extension/README.md](extension/README.md) |
 
 You can use Lopper three ways: paste a public GitHub repo URL into the web API, run `lopper scan` in a terminal, or use the VS Code commands, which run the same `lopper scan` in VS Code's terminal. The landing page's **Connect a GitHub repo** buttons open a screen where you paste a repo URL, wait for the scan and read the results, calling the API.
@@ -15,7 +15,8 @@ You can use Lopper three ways: paste a public GitHub repo URL into the web API, 
 ## Stack
 
 - **Front end:** TypeScript, React 19, Vite, Tailwind CSS 4, Vitest and Testing Library.
-- **Back end:** Python, Flask and SQLite.
+- **Back end:** Python and Flask, with SQLite in development and Postgres (Supabase) in production.
+- **Hosting:** Cloudflare Pages for the site, Render for the API, Supabase for the database. See [DEPLOY.md](DEPLOY.md).
 - **VS Code extension:** TypeScript, with Vitest for tests.
 
 ## Getting started
