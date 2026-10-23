@@ -65,3 +65,39 @@ export function CheckIcon() {
     </svg>
   );
 }
+
+export function CircleAlertIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" x2="12" y1="8" y2="12" />
+      <line x1="12" x2="12.01" y1="16" y2="16" />
+    </svg>
+  );
+}
+
+export function LeafIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+    </svg>
+  );
+}
+
+export function Spinner() {
+  return <span className="spinner" aria-hidden="true" />;
+}
+
+type NoticeTone = "success" | "warning" | "error";
+
+/** An inline message with a tone icon. Errors use role="alert"; the rest use role="status". */
+export function Notice({ tone, children }: { tone: NoticeTone; children: ReactNode }) {
+  const icon = tone === "success" ? <CircleCheckIcon /> : tone === "warning" ? <TriangleAlertIcon /> : <CircleAlertIcon />;
+  return (
+    <div className={`notice notice-${tone}`} role={tone === "error" ? "alert" : "status"}>
+      <span className="icon-md flex-none" aria-hidden="true">{icon}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}

@@ -19,6 +19,11 @@
   --c-success-tint: var(--color-success-tint);
   --c-warning: var(--color-warning);
   --c-warning-tint: var(--color-warning-tint);
+  --c-error: var(--color-error);
+  --c-error-tint: var(--color-error-tint);
+  --c-success-border: var(--color-success-border);
+  --c-warning-border: var(--color-warning-border);
+  --c-error-border: var(--color-error-border);
   --c-on-primary: var(--color-background);
 }
 
@@ -38,6 +43,11 @@
   --c-success-tint: var(--color-dark-success-tint);
   --c-warning: var(--color-dark-warning);
   --c-warning-tint: var(--color-dark-warning-tint);
+  --c-error: var(--color-dark-error);
+  --c-error-tint: var(--color-dark-error-tint);
+  --c-success-border: var(--color-dark-success-border);
+  --c-warning-border: var(--color-dark-warning-border);
+  --c-error-border: var(--color-dark-error-border);
   --c-on-primary: var(--color-dark-background);
 }
 
@@ -65,6 +75,7 @@
   @media (prefers-reduced-motion: reduce) {
     * {
       transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
     }
   }
 }
@@ -195,4 +206,80 @@
   [data-theme="dark"] .logo img.logo-dark { display: block; }
 
   .icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+  /* Forms */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { color: var(--c-text); font-size: var(--text-label); font-weight: 500; line-height: 1.43; letter-spacing: 0.025em; }
+  .field-helper { color: var(--c-muted); font-size: var(--text-small); line-height: 1.43; letter-spacing: 0.025em; }
+  .field-error { display: flex; align-items: center; gap: var(--spacing-half); color: var(--c-error); font-size: var(--text-small); line-height: 1.43; letter-spacing: 0.025em; }
+  .input {
+    width: 100%;
+    height: var(--spacing-control-height-md);
+    padding: 0 12px;
+    background: var(--c-card);
+    color: var(--c-text);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-control);
+    font-size: var(--text-body);
+    letter-spacing: 0.025em;
+    transition: border-color 200ms cubic-bezier(.22,.61,.36,1);
+  }
+  .input:hover { border-color: var(--c-muted); }
+  .input:focus { border-color: var(--c-primary); }
+  .input[aria-invalid="true"] { border-color: var(--c-error); }
+  .input-mono { font-family: var(--font-code), ui-monospace, Menlo, Consolas, monospace; font-size: var(--text-code); letter-spacing: normal; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* A real checkbox, drawn with the .check look from DESIGN.md */
+  .checkbox { position: relative; display: inline-flex; flex: none; }
+  .checkbox input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .checkbox .check svg { display: none; }
+  .checkbox:hover .check { border-color: var(--c-primary); }
+  .checkbox input:checked + .check { background: var(--c-primary); border-color: var(--c-primary); }
+  .checkbox input:checked + .check svg { display: block; }
+  .checkbox input:focus-visible + .check { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+
+  /* Inline notices: a tinted fill, a border in the tone colour, and an icon */
+  .notice {
+    display: flex;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-card);
+    color: var(--c-text);
+    font-size: var(--text-small);
+    line-height: 1.43;
+    letter-spacing: 0.025em;
+  }
+  .notice-success { background: var(--c-success-tint); border-color: var(--c-success-border); }
+  .notice-success .icon { color: var(--c-success); }
+  .notice-warning { background: var(--c-warning-tint); border-color: var(--c-warning-border); }
+  .notice-warning .icon { color: var(--c-warning); }
+  .notice-error { background: var(--c-error-tint); border-color: var(--c-error-border); }
+  .notice-error .icon { color: var(--c-error); }
+  .icon-md { display: inline-flex; width: 20px; height: 20px; }
+  .icon-md .icon { width: 20px; height: 20px; }
+
+  .disc {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--c-primary-tint);
+    color: var(--c-primary);
+  }
+  .disc .icon { width: 24px; height: 24px; }
+
+  .spinner {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--c-border);
+    border-top-color: var(--c-primary);
+    border-radius: 50%;
+    animation: lopper-spin 900ms linear infinite;
+  }
+  @keyframes lopper-spin { to { transform: rotate(360deg); } }
 }
