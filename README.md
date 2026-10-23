@@ -10,7 +10,7 @@ This repository holds the design system, the landing page, the Python back end a
 | Scanner, `lopper` command and web API (Flask and Postgres) | `backend/` | [backend/README.md](backend/README.md) |
 | VS Code extension | `extension/` | [extension/README.md](extension/README.md) |
 
-You can use Lopper three ways: paste a public GitHub repo URL into the web API, run `lopper scan` in a terminal, or use the VS Code commands, which run the same `lopper scan` in VS Code's terminal. The landing page does not call the API yet.
+You can use Lopper three ways: paste a public GitHub repo URL into the web API, run `lopper scan` in a terminal, or use the VS Code commands, which run the same `lopper scan` in VS Code's terminal. The landing page's **Connect a GitHub repo** buttons open a screen where you paste a repo URL, wait for the scan and read the results, calling the API.
 
 ## Stack
 
@@ -24,6 +24,16 @@ You can use Lopper three ways: paste a public GitHub repo URL into the web API, 
 npm install
 npm run dev
 ```
+
+## Run the whole thing
+
+```bash
+python backend/scripts/dev_db.py start     # a throwaway Postgres on port 5544 (see backend/README.md)
+cd backend && lopper db-init && lopper serve   # the API on http://127.0.0.1:5000
+npm run dev                                # the site on http://localhost:5173
+```
+
+Open the site and choose **Connect a GitHub repo**, then paste a public repo URL. In development Vite forwards `/api` to the Flask server, so there is nothing to configure. For a production build, set `VITE_API_URL` to the API's address (see `.env.example`).
 
 ## Scripts
 
