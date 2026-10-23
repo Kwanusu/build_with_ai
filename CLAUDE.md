@@ -5,7 +5,16 @@
 - `npm test` runs the tests. Run it, and `npm run build`, before every commit.
 - Layout: `src/content.ts` holds page copy, `src/components/` the React components, `src/index.css` the semantic colour roles and component styles, and `styles.css` the generated Tailwind theme.
 - Logos are in `assets/logo/`. Use the files as supplied through `src/components/Logo.tsx`; never retype, recolour or redraw them. The lockup goes in the header, the wordmark in the footer and on small screens, and the app icon is the favicon.
-- Write all code in TypeScript. Keep copy in `src/content.ts`, not inline in components.
+- Write the front end and the VS Code extension in TypeScript. Keep copy in `src/content.ts`, not inline in components.
+
+## Back end and extension
+
+- The back end is Python 3.11+ with Flask and PostgreSQL, in `backend/`. It has its own virtual environment at `backend/.venv`. Run its tests with `backend/.venv/Scripts/python -m pytest` from `backend/` (`.venv/bin/python` on macOS and Linux).
+- The API tests need Postgres. `python scripts/dev_db.py start` starts a throwaway cluster on port 5544 (set `PG_BIN` if the Postgres tools aren't on PATH). They empty the `lopper_test` database.
+- The scanner reads code and never changes or runs it. Keep it conservative: when a finding could be wrong, mark it `uncertain` rather than `safe`. Add a test for every false positive you fix.
+- Only public `github.com` repo URLs may be cloned. Keep that check in `backend/lopper/repo.py`, and never pass user input to a shell.
+- The VS Code extension is in `extension/` and only runs the `lopper` command in the terminal. Build commands in `extension/src/commands.ts` (no VS Code imports) so they can be tested, and quote every argument for the user's shell. Run `npm test` and `npm run compile` there.
+- Before every commit, run the tests for every part you touched.
 
 ## Design
 
