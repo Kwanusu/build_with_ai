@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .dotenv import load_dotenv
 from .repo import RepoError, checkout, parse_repo_url
 from .scanner import ScanLimitError, ScanResult, scan_path
 
@@ -93,6 +94,8 @@ def _scan(args: argparse.Namespace) -> int:
 def _serve(args: argparse.Namespace) -> int:
     from .api import create_app
 
+    load_dotenv()  # settings and the GitHub app's secret can live in backend/.env
+
     app = create_app()
     app.run(host=args.host, port=args.port, debug=args.debug)
     return 0
@@ -101,6 +104,8 @@ def _serve(args: argparse.Namespace) -> int:
 def _db_init(_args: argparse.Namespace) -> int:
     from .api import create_app
     from .api.db import init_db
+
+    load_dotenv()
 
     app = create_app(init=False)
     with app.app_context():
