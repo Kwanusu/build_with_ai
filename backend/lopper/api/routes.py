@@ -4,10 +4,11 @@ import threading
 import time
 from collections import defaultdict, deque
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from ..repo import RepoError, parse_repo_url
 from ..scanner.models import FINDING_TYPES
+from .auth import SESSION_COOKIE, user_for_session
 from .db import database_is_up
 
 bp = Blueprint("api", __name__, url_prefix="/api")
@@ -41,6 +42,17 @@ def service():
     return current_app.extensions["lopper_scans"]
 
 
+def current_user() -> dict | None:
+    """The signed-in user for this request, from the session cookie, or None."""
+    if "lopper_user" not in g:
+        g.lopper_user = user_for_session(current_app.extensions["lopper_pool"], request.cookies.get(SESSION_COOKIE))
+    return g.lopper_user
+
+
+def github_token(user: dict) -> str | None:
+    return current_app.extensions["lopper_tokens"].decrypt(user["access_token_encrypted"])
+
+
 @bp.get("/health")
 def health():
     up = database_is_up()
@@ -61,7 +73,13 @@ def create_scan():
     if not limiter.allow(request.remote_addr or "unknown"):
         return error("That's a lot of scans in a minute. Wait a moment and try again. Nothing has been changed.", "rate_limited", 429)
 
-    scan, created = service().start(ref)
+    user = current_user()
+    token = None
+    if user:
+        token = github_token(user)
+        if token is None:
+            return error("We couldn't read your GitHub sign-in, so please sign in again. Nothing has been changed.", "sign_in_required", 401)
+    scan, created = service().start(ref, user["id"] if user else None, token)
     return jsonify({"scan": scan}), 202 if created else 200
 
 
@@ -70,7 +88,8 @@ def get_scan(scan_id: int):
     finding_type = request.args.get("type")
     if finding_type and finding_type not in FINDING_TYPES:
         return error(f"Unknown finding type. Use one of: {', '.join(FINDING_TYPES)}.", "invalid_type", 400)
-    scan = service().get_scan(scan_id, finding_type)
+    user = current_user()
+    scan = service().get_scan(scan_id, finding_type, viewer_id=user["id"] if user else None)
     if not scan:
         return error("We couldn't find that scan. It may have been replaced by a newer scan of the same repo.", "not_found", 404)
     return jsonify({"scan": scan})
@@ -82,7 +101,8 @@ def latest_scan(owner: str, name: str):
         ref = parse_repo_url(f"https://github.com/{owner}/{name}")
     except RepoError as problem:
         return error(str(problem), "invalid_repo_url", 400)
-    scan = service().latest_for_repo(ref)
+    user = current_user()
+    scan = service().latest_for_repo(ref, viewer_id=user["id"] if user else None)
     if not scan:
         return error("We haven't scanned that repo yet.", "not_found", 404)
     return jsonify({"scan": scan})
@@ -93,9 +113,14 @@ def update_finding(finding_id: int):
     body = request.get_json(silent=True)
     if not isinstance(body, dict) or not isinstance(body.get("ticked"), bool):
         return error("Send a JSON body like {\"ticked\": true}.", "invalid_request", 400)
-    finding, problem = service().set_ticked(finding_id, body["ticked"])
+    user = current_user()
+    if not user:
+        return error("Sign in with GitHub to tick items and keep your choices.", "sign_in_required", 401)
+    finding, problem = service().set_ticked(finding_id, body["ticked"], user["id"])
     if problem == "not_found":
         return error("We couldn't find that finding.", "not_found", 404)
+    if problem == "public_scan":
+        return error("This is a public scan, so it can't be ticked. Rescan while signed in to tick items on your own copy.", "public_scan", 403)
     if problem == "report_only":
         return error("Lint issues are report only, so there's nothing to tick.", "report_only", 400)
     return jsonify({"finding": finding})
