@@ -35,6 +35,8 @@ npm run dev                                # the site on http://localhost:5173
 
 Open the site and choose **Connect a GitHub repo**, then paste a public repo URL. To sign in with GitHub and scan private repos, create a GitHub OAuth app first (see [Sign in with GitHub](backend/README.md#sign-in-with-github)). In development Vite forwards `/api` to the Flask server, so there is nothing to configure. For a production build, set `VITE_API_URL` to the API's address (see `.env.example`).
 
+If you see "That request came from http://localhost:5174, which this server doesn't allow", you have a second dev server running. Use the one on `http://localhost:5173` and stop the other. `npm run dev` now stops with an error instead of quietly using a different port.
+
 ## Scripts
 
 | Command | What it does |
