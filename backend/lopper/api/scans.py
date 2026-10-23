@@ -1,4 +1,8 @@
-"""Starting scans, running them in the background, and reading them back."""
+"""Starting scans, running them in the background, and reading them back.
+
+Who can see what: a scan made while signed in belongs to that user and only they can read or tick it.
+A scan made without signing in is public: anyone can read it, and nobody can tick it.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +20,8 @@ from ..scanner.models import FINDING_TYPES
 
 log = logging.getLogger(__name__)
 
-Fetcher = Callable[[RepoRef], AbstractContextManager[Path]]
+# How a repo becomes a folder. `token` is the signed-in person's GitHub token, or None.
+Fetcher = Callable[[RepoRef, str | None], AbstractContextManager[Path]]
 
 FINDING_COLUMNS = "id, type, package, item, file_path, line, evidence, confidence, language, report_only, ticked"
 
@@ -25,9 +30,18 @@ def _iso(value) -> str | None:
     return value.isoformat() if value else None
 
 
+def default_fetch(ref: RepoRef, token: str | None) -> AbstractContextManager[Path]:
+    return checkout(ref, token=token)
+
+
 class ScanService:
     def __init__(
-        self, pool: ConnectionPool, fetch: Fetcher = checkout, workers: int = 2, inline: bool = False, stale_minutes: int = 10
+        self,
+        pool: ConnectionPool,
+        fetch: Fetcher = default_fetch,
+        workers: int = 2,
+        inline: bool = False,
+        stale_minutes: int = 10,
     ) -> None:
         self.pool = pool
         self.fetch = fetch
@@ -37,8 +51,11 @@ class ScanService:
 
     # ----- starting -----
 
-    def start(self, ref: RepoRef) -> tuple[dict, bool]:
-        """Begin a scan of `ref`. Returns (scan, created). If one is already running, returns that one instead."""
+    def start(self, ref: RepoRef, user_id: int | None = None, token: str | None = None) -> tuple[dict, bool]:
+        """Begin a scan of `ref` for `user_id` (None for a public scan).
+
+        Returns (scan, created). If that user's scan of the repo is already running, returns it instead.
+        """
         with self.pool.connection() as conn:
             repo = conn.execute(
                 """INSERT INTO repos (url, owner, name) VALUES (%s, %s, %s)
@@ -46,29 +63,29 @@ class ScanService:
                 (ref.url, ref.owner, ref.name),
             ).fetchone()
             running = conn.execute(
-                """SELECT id FROM scans WHERE repo_id = %s AND status = 'running'
+                """SELECT id FROM scans WHERE repo_id = %s AND user_id IS NOT DISTINCT FROM %s AND status = 'running'
                    AND started_at > now() - make_interval(mins => %s)""",
-                (repo["id"], self.stale_minutes),
+                (repo["id"], user_id, self.stale_minutes),
             ).fetchone()
             if running:
-                return self.get_scan(running["id"]), False
-            # Only the latest scan is kept per repo, so the old one (and its findings) goes.
-            conn.execute("DELETE FROM scans WHERE repo_id = %s", (repo["id"],))
+                return self.get_scan(running["id"], viewer_id=user_id), False
+            # Only the latest scan is kept for each repo and owner, so the old one (and its findings) goes.
+            conn.execute("DELETE FROM scans WHERE repo_id = %s AND user_id IS NOT DISTINCT FROM %s", (repo["id"], user_id))
             scan = conn.execute(
-                "INSERT INTO scans (repo_id, status) VALUES (%s, 'running') RETURNING id", (repo["id"],)
+                "INSERT INTO scans (repo_id, user_id, status) VALUES (%s, %s, 'running') RETURNING id", (repo["id"], user_id)
             ).fetchone()
         scan_id = scan["id"]
         if self.inline:
-            self._run(scan_id, ref)
+            self._run(scan_id, ref, token)
         else:
-            self.executor.submit(self._run, scan_id, ref)
-        return self.get_scan(scan_id), True
+            self.executor.submit(self._run, scan_id, ref, token)
+        return self.get_scan(scan_id, viewer_id=user_id), True
 
     # ----- running -----
 
-    def _run(self, scan_id: int, ref: RepoRef) -> None:
+    def _run(self, scan_id: int, ref: RepoRef, token: str | None) -> None:
         try:
-            with self.fetch(ref) as folder:
+            with self.fetch(ref, token) as folder:
                 result = scan_path(folder)
         except (RepoError, ScanLimitError) as error:
             self._fail(scan_id, str(error))
@@ -111,13 +128,14 @@ class ScanService:
 
     # ----- reading -----
 
-    def get_scan(self, scan_id: int, finding_type: str | None = None) -> dict | None:
+    def get_scan(self, scan_id: int, finding_type: str | None = None, viewer_id: int | None = None) -> dict | None:
+        """The scan, or None if it doesn't exist or belongs to someone else."""
         with self.pool.connection() as conn:
             scan = conn.execute(
                 """SELECT s.*, r.url, r.owner, r.name FROM scans s JOIN repos r ON r.id = s.repo_id WHERE s.id = %s""",
                 (scan_id,),
             ).fetchone()
-            if not scan:
+            if not scan or (scan["user_id"] is not None and scan["user_id"] != viewer_id):
                 return None
             counts = {kind: 0 for kind in FINDING_TYPES}
             for row in conn.execute("SELECT type, count(*) AS n FROM findings WHERE scan_id = %s GROUP BY type", (scan_id,)):
@@ -139,22 +157,36 @@ class ScanService:
             "packages_scanned": scan["packages_scanned"],
             "languages": scan["languages"],
             "counts": counts,
+            # Only the person who made a scan while signed in can tick items on it.
+            "can_tick": scan["user_id"] is not None and scan["user_id"] == viewer_id,
             "findings": findings,
         }
 
-    def latest_for_repo(self, ref: RepoRef) -> dict | None:
+    def latest_for_repo(self, ref: RepoRef, viewer_id: int | None = None) -> dict | None:
+        """The viewer's own scan of the repo if they have one, otherwise the public one."""
         with self.pool.connection() as conn:
             row = conn.execute(
-                "SELECT s.id FROM scans s JOIN repos r ON r.id = s.repo_id WHERE r.url = %s", (ref.url,)
+                """SELECT s.id FROM scans s JOIN repos r ON r.id = s.repo_id
+                   WHERE r.url = %s AND (s.user_id IS NULL OR s.user_id = %s)
+                   ORDER BY (s.user_id IS NULL), s.started_at DESC LIMIT 1""",
+                (ref.url, viewer_id),
             ).fetchone()
-        return self.get_scan(row["id"]) if row else None
+        return self.get_scan(row["id"], viewer_id=viewer_id) if row else None
 
-    def set_ticked(self, finding_id: int, ticked: bool) -> tuple[dict | None, str | None]:
-        """Tick or untick a finding. Returns (finding, problem)."""
+    def set_ticked(self, finding_id: int, ticked: bool, user_id: int) -> tuple[dict | None, str | None]:
+        """Tick or untick a finding. Returns (finding, problem).
+
+        `problem` is "not_found" (no such finding, or it is in someone else's private scan),
+        "public_scan" (a public scan can't be ticked), or "report_only".
+        """
         with self.pool.connection() as conn:
-            current = conn.execute("SELECT report_only FROM findings WHERE id = %s", (finding_id,)).fetchone()
-            if not current:
+            current = conn.execute(
+                "SELECT f.report_only, s.user_id FROM findings f JOIN scans s ON s.id = f.scan_id WHERE f.id = %s", (finding_id,)
+            ).fetchone()
+            if not current or (current["user_id"] is not None and current["user_id"] != user_id):
                 return None, "not_found"
+            if current["user_id"] is None:
+                return None, "public_scan"
             if current["report_only"]:
                 return None, "report_only"
             finding = conn.execute(

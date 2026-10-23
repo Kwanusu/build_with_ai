@@ -1,5 +1,28 @@
--- Lopper schema. Safe to run more than once.
--- Only the latest scan is kept per repo, and each scan's findings are replaced with it.
+-- Lopper schema. Safe to run more than once, and it upgrades an older database in place.
+--
+-- A scan made while signed in belongs to that user and is private to them. A scan made without
+-- signing in is public and read-only. Only the latest scan is kept for each repo and owner, and a
+-- scan's findings are replaced with it.
+
+CREATE TABLE IF NOT EXISTS users (
+    id                      BIGSERIAL PRIMARY KEY,
+    github_id               BIGINT NOT NULL UNIQUE,
+    login                   TEXT NOT NULL,
+    avatar_url              TEXT,
+    access_token_encrypted  TEXT NOT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_signed_in_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The cookie holds a random token. Only its hash is stored, so a copy of this table can't be used to sign in.
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
 
 CREATE TABLE IF NOT EXISTS repos (
     id          BIGSERIAL PRIMARY KEY,
@@ -11,7 +34,8 @@ CREATE TABLE IF NOT EXISTS repos (
 
 CREATE TABLE IF NOT EXISTS scans (
     id                BIGSERIAL PRIMARY KEY,
-    repo_id           BIGINT NOT NULL UNIQUE REFERENCES repos (id) ON DELETE CASCADE,
+    repo_id           BIGINT NOT NULL REFERENCES repos (id) ON DELETE CASCADE,
+    user_id           BIGINT REFERENCES users (id) ON DELETE CASCADE,
     status            TEXT NOT NULL CHECK (status IN ('running', 'done', 'failed')),
     started_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at       TIMESTAMPTZ,
@@ -20,6 +44,13 @@ CREATE TABLE IF NOT EXISTS scans (
     packages_scanned  INTEGER NOT NULL DEFAULT 0,
     languages         TEXT[] NOT NULL DEFAULT '{}'
 );
+
+-- Upgrading a database made before sign-in existed.
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users (id) ON DELETE CASCADE;
+ALTER TABLE scans DROP CONSTRAINT IF EXISTS scans_repo_id_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS scans_one_public_per_repo ON scans (repo_id) WHERE user_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS scans_one_per_repo_and_user ON scans (repo_id, user_id) WHERE user_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS findings (
     id           BIGSERIAL PRIMARY KEY,
