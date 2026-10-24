@@ -168,7 +168,11 @@ export const SCAN = {
     rescanning: "Starting the scan",
     otherRepo: "Scan another repo",
     notice:
-      "Pull requests aren't available yet. Tick what you plan to remove and make the changes yourself. Lopper never removes anything on its own.",
+      "Nothing will be removed until you merge the pull request. Tick what you want gone, then create a pull request and read it before you merge.",
+    createPr: "Create pull request",
+    creatingPr: "Creating pull request",
+    prHelp: "Tick at least one item to create a pull request.",
+    prScope: "Lopper edits JavaScript and TypeScript projects for now. Anything it can't change is left on your list.",
     lintNote: "Lint issues are report only.",
     openOnGithub: "Open on GitHub",
     tickHelp: "Items with no use found start ticked. Items that need a closer look start unticked.",
@@ -231,6 +235,18 @@ export const AUTH_ERROR = {
     not_configured: "Sign-in with GitHub isn't set up on this server yet. You can still scan a public repo.",
   } as Record<string, string>,
   fallback: "We couldn't sign you in. Nothing has been changed. Try again.",
+};
+
+export const PULL_REQUEST = {
+  title: "Pull request created",
+  summary: (changes: number, repo: string) =>
+    `${changes.toLocaleString("en-US")} ${changes === 1 ? "change" : "changes"} on a new branch of ${repo}. Nothing is removed until you merge it.`,
+  open: "Open pull request on GitHub",
+  back: "Back to results",
+  changesTitle: "What changed",
+  leftTitle: "Left for you",
+  leftIntro: "Lopper couldn't make these changes on its own. They're still on your list.",
+  lockfiles: "Lock files aren't updated. Run your install command to refresh them.",
 };
 
 export const CANNOT_TICK = {

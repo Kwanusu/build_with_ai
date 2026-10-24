@@ -55,12 +55,15 @@ export interface RepoSummary {
 export class ApiError extends Error {
   readonly code: string;
   readonly status: number;
+  /** Anything else the server sent with the error, such as the items a pull request couldn't include. */
+  readonly details: Record<string, unknown>;
 
-  constructor(message: string, code: string, status: number) {
+  constructor(message: string, code: string, status: number, details: Record<string, unknown> = {}) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -81,9 +84,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       0,
     );
   }
-  const data = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
+  const data = (await response.json().catch(() => null)) as ({ error?: string; code?: string } & Record<string, unknown>) | null;
   if (!response.ok) {
-    throw new ApiError(data?.error ?? "Something went wrong. Nothing has been changed.", data?.code ?? "http_error", response.status);
+    throw new ApiError(data?.error ?? "Something went wrong. Nothing has been changed.", data?.code ?? "http_error", response.status, data ?? {});
   }
   return data as T;
 }
@@ -99,6 +102,26 @@ export async function getScan(id: number): Promise<Scan> {
 
 export async function getLatestScan(owner: string, name: string): Promise<Scan> {
   return (await request<{ scan: Scan }>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/scan`)).scan;
+}
+
+export interface PullRequestResult {
+  pull_request: { url: string; number: number; branch: string; title: string; base: string };
+  /** What the pull request changes. */
+  applied: { id: number; item: string; type: FindingType; file_path: string; summary: string }[];
+  /** Ticked items Lopper couldn't change on its own, with the reason. */
+  skipped: SkippedChange[];
+}
+
+export interface SkippedChange {
+  id: number;
+  item: string;
+  type: FindingType;
+  reason: string;
+}
+
+/** Open a pull request that makes the changes ticked on this scan. Only the signed-in owner of the scan can. */
+export async function createPullRequest(scanId: number): Promise<PullRequestResult> {
+  return request<PullRequestResult>(`/scans/${scanId}/pull-request`, { method: "POST" });
 }
 
 export async function setTicked(findingId: number, ticked: boolean): Promise<Finding> {

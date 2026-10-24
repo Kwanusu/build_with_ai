@@ -275,6 +275,8 @@
     color: var(--c-primary);
   }
   .disc .icon { width: 24px; height: 24px; }
+  .disc-success { width: 48px; height: 48px; background: var(--c-success-tint); color: var(--c-success); }
+  .disc-success .icon { width: 20px; height: 20px; }
 
   .spinner {
     flex: none;

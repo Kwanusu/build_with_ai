@@ -160,12 +160,13 @@ describe("results", () => {
     expect(screen.getByText("Report only")).toBeInTheDocument();
   });
 
-  it("says plainly that pull requests aren't available yet and offers no pull request button", async () => {
+  it("reassures before a pull request: nothing is removed until it is merged", async () => {
     renderResults(set());
     await screen.findByRole("heading", { level: 1 });
-    expect(screen.getByText(/Pull requests aren't available yet/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
-    expect(document.querySelectorAll(".btn-primary")).toHaveLength(0);
+    expect(screen.getByText(/Nothing will be removed until you merge the pull request/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create pull request" })).toBeEnabled();
+    // One primary action in the view.
+    expect(document.querySelectorAll(".btn-primary")).toHaveLength(1);
   });
 
   it("saves a tick and updates the count straight away", async () => {
@@ -210,7 +211,7 @@ describe("results", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Nothing to prune" })).toBeInTheDocument();
     expect(screen.getByText(/Searched 1,208 files across 12 packages \(javascript\)\. We found no unused packages or exports\./)).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("!");
-    expect(screen.queryByText(/Pull requests aren't available yet/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create pull request" })).toBeNull();
   });
 });
 
@@ -293,3 +294,107 @@ describe("scans you can't tick", () => {
   });
 });
 
+
+describe("creating a pull request", () => {
+  const PR_URL = "https://github.com/acme/web-platform/pull/7";
+  const created = (over = {}) => ({
+    pull_request: { url: PR_URL, number: 7, branch: "lopper/remove-unused-20261024-101500", title: "Remove 2 unused items found by Lopper", base: "main" },
+    applied: [
+      { id: 101, item: "left-pad", type: "unused-package", file_path: "package.json", summary: "Remove left-pad from dependencies" },
+      { id: 103, item: "formatInvoice", type: "unused-export", file_path: "src/invoice.ts", summary: "Stop exporting formatInvoice" },
+    ],
+    skipped: [{ id: 104, item: "parseLegacyToken", type: "unused-export", reason: "This export is in an export list. Remove it by hand." }],
+    ...over,
+  });
+  const items = () => [
+    finding({ id: 101, type: "unused-package", item: "left-pad", file_path: "package.json", line: 6, package: "." }),
+    finding({ id: 103, item: "formatInvoice" }),
+    finding({ id: 104, item: "parseLegacyToken", confidence: "uncertain", ticked: false }),
+  ];
+
+  it("asks the server for a pull request and then shows what was made, with a link to it", async () => {
+    const { result } = renderResults(items());
+    mockApi({
+      [LATEST]: () => ({ body: { scan: result } }),
+      [`POST /api/scans/${result.id}/pull-request`]: () => ({ status: 201, body: created() }),
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Create pull request" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Pull request created" })).toBeInTheDocument();
+    expect(screen.getByText(/2 changes on a new branch of acme\/web-platform\. Nothing is removed until you merge it\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open pull request on GitHub" })).toHaveAttribute("href", PR_URL);
+    expect(screen.getByRole("link", { name: "Open pull request on GitHub" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByText("Stop exporting formatInvoice")).toBeInTheDocument();
+    expect(screen.getByText(/Lock files aren't updated/)).toBeInTheDocument();
+    const left = screen.getByRole("heading", { name: "Left for you" }).closest("section")!;
+    expect(within(left).getByText("parseLegacyToken")).toBeInTheDocument();
+    expect(within(left).getByText(/export list/)).toBeInTheDocument();
+  });
+
+  it("goes back to the results with the ticks as they were", async () => {
+    const { result } = renderResults(items());
+    mockApi({
+      [LATEST]: () => ({ body: { scan: result } }),
+      [`POST /api/scans/${result.id}/pull-request`]: () => ({ status: 201, body: created() }),
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Create pull request" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Back to results" }));
+    expect(await screen.findByRole("checkbox", { name: "Tick formatInvoice to remove it" })).toBeChecked();
+  });
+
+  it("disables itself and says what it is doing while it works", async () => {
+    const { result } = renderResults(items());
+    let finish: (value: unknown) => void = () => {};
+    const gate = new Promise((resolve) => (finish = resolve));
+    mockApi({
+      [LATEST]: () => ({ body: { scan: result } }),
+      [`POST /api/scans/${result.id}/pull-request`]: async () => {
+        await gate;
+        return { status: 201, body: created() };
+      },
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Create pull request" }));
+    const busy = await screen.findByRole("button", { name: "Creating pull request" });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    finish(undefined);
+    expect(await screen.findByRole("heading", { level: 1, name: "Pull request created" })).toBeInTheDocument();
+  });
+
+  it("needs at least one tick", async () => {
+    renderResults(items().map((f) => ({ ...f, ticked: false })));
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByRole("button", { name: "Create pull request" })).toBeDisabled();
+    expect(screen.getByText(/Tick at least one item to create a pull request\./)).toBeInTheDocument();
+  });
+
+  it("explains a refusal and lists what Lopper couldn't change, and lets you try again", async () => {
+    const { result } = renderResults(items());
+    mockApi({
+      [LATEST]: () => ({ body: { scan: result } }),
+      [`POST /api/scans/${result.id}/pull-request`]: () => ({
+        status: 422,
+        body: {
+          error: "Lopper can't make any of the ticked changes on its own. Nothing has been changed.",
+          code: "nothing_to_change",
+          skipped: [{ id: 101, item: "left-pad", type: "unused-package", reason: "package.json has changed since the scan, so Lopper left it alone." }],
+        },
+      }),
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Create pull request" }));
+    const alert = await screen.findByText(/can't make any of the ticked changes on its own/);
+    expect(within(alert.closest("[role=alert]") as HTMLElement).getByText(/package\.json has changed since the scan/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create pull request" })).toBeEnabled();
+  });
+
+  it("offers no pull request button on a scan you can't tick", async () => {
+    mockApi({ [LATEST]: () => ({ body: { scan: scan({ can_tick: false }, items()) } }) });
+    render(<ScanPage {...REPO} pollMs={0} />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
+  });
+});

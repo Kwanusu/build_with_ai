@@ -1,17 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, getLatestScan, getScan, setTicked, signInHref, startScan, type Finding, type Scan } from "../api";
+import {
+  ApiError,
+  createPullRequest,
+  getLatestScan,
+  getScan,
+  setTicked,
+  signInHref,
+  startScan,
+  type Finding,
+  type PullRequestResult,
+  type Scan,
+  type SkippedChange,
+} from "../api";
 import { useAuth } from "../auth";
 import { CANNOT_TICK, CONNECT, SCAN } from "../content";
 import { scanHash } from "../route";
 import { Connect, Frame } from "./Connect";
 import { Findings } from "./Findings";
+import { PullRequestCreated } from "./PullRequestCreated";
 import { LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
 
 type View =
   | { kind: "form"; notice?: string; initialUrl?: string }
   | { kind: "loading" }
   | { kind: "scanning"; repo: string; slow: boolean }
-  | { kind: "results"; scan: Scan }
+  | { kind: "results"; scan: Scan; pull?: PullRequestResult }
   | { kind: "error"; message: string; repoUrl?: string };
 
 interface ScanPageProps {
@@ -116,7 +129,7 @@ export function ScanPage({ owner, repo, pollMs = 1000 }: ScanPageProps) {
       setView((current) =>
         current.kind === "results"
           ? {
-              kind: "results",
+              ...current,
               scan: {
                 ...current.scan,
                 findings: current.scan.findings.map((f) => (f.id === finding.id ? { ...f, ticked: value } : f)),
@@ -162,13 +175,29 @@ export function ScanPage({ owner, repo, pollMs = 1000 }: ScanPageProps) {
     return <ErrorView message={view.message} repoUrl={view.repoUrl} onRetry={start} />;
   }
 
+  if (view.kind === "results" && view.pull) {
+    const { scan } = view;
+    return (
+      <PullRequestCreated
+        result={view.pull}
+        repo={`${scan.repo.owner}/${scan.repo.name}`}
+        onBack={() => setView({ kind: "results", scan })}
+      />
+    );
+  }
+
   if (view.kind === "results") {
+    const { scan } = view;
     return (
       <Results
-        scan={view.scan}
+        scan={scan}
         tickError={tickError}
         onTick={onTick}
-        onRescan={() => start(view.scan.repo.url)}
+        onRescan={() => start(scan.repo.url)}
+        onCreatePr={async () => {
+          const pull = await createPullRequest(scan.id);
+          setView({ kind: "results", scan, pull });
+        }}
       />
     );
   }
@@ -222,15 +251,19 @@ function Results({
   tickError,
   onTick,
   onRescan,
+  onCreatePr,
 }: {
   scan: Scan;
   tickError: boolean;
   onTick: (finding: Finding, ticked: boolean) => void;
   onRescan: () => Promise<void>;
+  onCreatePr: () => Promise<void>;
 }) {
   const auth = useAuth();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
+  const [creating, setCreating] = useState(false);
+  const [prProblem, setPrProblem] = useState<{ message: string; skipped: SkippedChange[] }>();
   const unused = scan.counts["unused-package"] + scan.counts["unused-dev-dependency"] + scan.counts["unused-export"];
   const lint = scan.counts["lint-issue"];
   const ticked = scan.findings.filter((f) => f.ticked).length;
@@ -247,6 +280,18 @@ function Results({
       setProblem(messageOf(error));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function createPr() {
+    setCreating(true);
+    setPrProblem(undefined);
+    try {
+      await onCreatePr();
+    } catch (error) {
+      const skipped = error instanceof ApiError && Array.isArray(error.details.skipped) ? (error.details.skipped as SkippedChange[]) : [];
+      setPrProblem({ message: messageOf(error), skipped });
+      setCreating(false);
     }
   }
 
@@ -296,10 +341,36 @@ function Results({
           </Notice>
         )}
         {problem && <Notice tone="error">{problem}</Notice>}
+        {prProblem && (
+          <Notice tone="error">
+            {prProblem.message}
+            {prProblem.skipped.length > 0 && (
+              <ul className="list-none p-0 m-0 mt-1 flex flex-col gap-1">
+                {prProblem.skipped.map((change) => (
+                  <li key={change.id}>
+                    <span className="type-code">{change.item}</span> <span className="type-small">{change.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Notice>
+        )}
         {tickError && <Notice tone="error">{SCAN.results.tickError}</Notice>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {!empty && scan.can_tick && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={createPr}
+            disabled={creating || ticked === 0}
+            aria-busy={creating}
+          >
+            {creating && <Spinner />}
+            {creating ? SCAN.results.creatingPr : SCAN.results.createPr}
+          </button>
+        )}
         <button type="button" className="btn btn-secondary" onClick={rescan} disabled={busy} aria-busy={busy}>
           {busy ? SCAN.results.rescanning : SCAN.results.rescan}
         </button>
@@ -308,10 +379,12 @@ function Results({
         </a>
         {!empty && scan.can_tick && (
           <p className="type-small c-muted" aria-live="polite">
-            {plural(ticked, "item", "items")} ticked. {SCAN.results.tickHelp}
+            {plural(ticked, "item", "items")} ticked. {ticked === 0 ? SCAN.results.prHelp : SCAN.results.tickHelp}
           </p>
         )}
       </div>
+
+      {!empty && scan.can_tick && <p className="type-small c-muted reading">{SCAN.results.prScope}</p>}
 
       <Findings scan={scan} onTick={onTick} />
     </Frame>
