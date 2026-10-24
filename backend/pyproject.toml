@@ -16,7 +16,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+# httpx2 is what openai uses; the chat tests import it to build the errors it raises.
+dev = ["pytest>=8", "httpx2>=2"]
 # Postgres (for example Supabase). SQLite needs nothing extra.
 postgres = ["psycopg[binary,pool]>=3.2"]
 prod = ["gunicorn>=22"]

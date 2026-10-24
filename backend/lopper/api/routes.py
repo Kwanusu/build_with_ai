@@ -147,14 +147,14 @@ def update_finding(finding_id: int):
 
 
 # Up to 10 questions of 1,000 characters and 10 replies of 8,000, with room for JSON. More than the global 16 KB limit.
+# create_app raises the limit for this route in its first request hook, before anything can read the body.
 CHAT_BODY_LIMIT = 128 * 1024
 
 
 @bp.post("/scans/<int:scan_id>/chat")
 def chat_about_scan(scan_id: int):
     """Answer a question about a finished scan. Anyone who can read the scan can ask, so a private scan is only for its owner."""
-    request.max_content_length = CHAT_BODY_LIMIT  # has to be set before the body is read
-    assistant = current_app.extensions["lopper_assistant"]
+    assistant =current_app.extensions["lopper_assistant"]
     if assistant is None:
         return error("Chat isn't set up on this server. Nothing has been changed.", "chat_unavailable", 503)
     try:

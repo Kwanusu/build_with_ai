@@ -15,7 +15,7 @@ from .auth import TokenBox
 from .config import Config
 from .db import init_db, make_pool
 from .github import GitHubClient
-from .routes import RateLimiter, bp
+from .routes import CHAT_BODY_LIMIT, RateLimiter, bp
 from .scans import Fetcher, ScanService, default_fetch
 
 __all__ = ["Config", "create_app"]
@@ -72,6 +72,13 @@ def create_app(
     )
 
     CORS(app, resources={r"/api/*": {"origins": sorted(config.allowed_origins)}}, supports_credentials=True)
+
+    @app.before_request
+    def allow_longer_chat_requests():
+        """A conversation is longer than the 16 KB the rest of the API takes. This hook is registered first, so the limit
+        is raised before any other hook or the view can read the body."""
+        if request.endpoint == "api.chat_about_scan":
+            request.max_content_length = CHAT_BODY_LIMIT
 
     @app.before_request
     def refuse_requests_from_other_sites():

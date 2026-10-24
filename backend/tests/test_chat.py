@@ -9,6 +9,8 @@ from lopper import chat
 from lopper.api.assistant import Assistant, ChatError
 from lopper.chat import ChatRequestError, build_turns, parse_messages, scan_context, selection_note
 
+from flask import request
+
 from .conftest import sign_in
 
 REPO = {"repo_url": "https://github.com/acme/web-platform"}
@@ -475,3 +477,20 @@ def test_a_slot_is_given_back_even_when_the_model_fails(make_app, assistant):
         assert chat_on(client, scan["id"]).status_code == 502
     assistant.error = None
     assert chat_on(client, scan["id"]).status_code == 200
+
+
+def test_the_longer_limit_holds_even_if_an_earlier_hook_reads_the_body(chat_app, assistant):
+    """The limit is set in the first request hook, not in the view, so a hook that runs before the view can't bypass it."""
+    seen = []
+
+    @chat_app.before_request
+    def read_the_body_early():
+        if request.endpoint == "api.chat_about_scan":
+            seen.append(len(request.get_data()))
+
+    client = chat_app.test_client()
+    scan = client.post("/api/scans", json=REPO).get_json()["scan"]
+    turns = [{"role": "user", "content": "q" * chat.MAX_USER_CHARS}, {"role": "assistant", "content": "a" * chat.MAX_REPLY_CHARS}] * 2
+    turns.append({"role": "user", "content": "And the last one?"})
+    assert chat_on(client, scan["id"], {"messages": turns}).status_code == 200
+    assert seen and seen[0] > 16 * 1024  # a hook really did read a body bigger than the default limit
