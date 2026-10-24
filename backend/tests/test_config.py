@@ -48,3 +48,23 @@ def test_sign_in_is_off_with_no_credentials_at_all(monkeypatch):
 def test_the_local_pair_switches_sign_in_on_with_a_secret_key(monkeypatch):
     credentials(monkeypatch, CLIENT_ID="local-id", CLIENT_SECRET="local-secret", SECRET_KEY="k")
     assert Config.from_env().auth_enabled is True
+
+
+def test_the_chosen_app_is_named_and_the_banner_says_which_callback_to_register(monkeypatch):
+    from lopper.cli import sign_in_banner
+
+    credentials(monkeypatch, CLIENT_ID="local-id", CLIENT_SECRET="local-secret", GITHUB_CLIENT_ID="deployed-id",
+                GITHUB_CLIENT_SECRET="deployed-secret", SECRET_KEY="k")
+    config = Config.from_env()
+    assert config.github_app == "local"
+    banner = sign_in_banner(config)
+    assert "local OAuth app (Client ID local-id)" in banner
+    assert "http://localhost:5173/api/auth/github/callback" in banner
+    assert "local-secret" not in banner and "deployed-secret" not in banner
+
+
+def test_the_banner_says_when_sign_in_is_off(monkeypatch):
+    from lopper.cli import sign_in_banner
+
+    credentials(monkeypatch)
+    assert "sign-in is off" in sign_in_banner(Config.from_env())

@@ -91,12 +91,23 @@ def _scan(args: argparse.Namespace) -> int:
     return 0
 
 
+def sign_in_banner(config) -> str:
+    """What to tell the person starting the server about GitHub sign-in. A Client ID is public, so it is safe to print."""
+    if not config.auth_enabled:
+        return "GitHub sign-in is off (it needs a Client ID, a Client secret and a SECRET_KEY in .env)."
+    return (
+        f"GitHub sign-in is on, using the {config.github_app} OAuth app (Client ID {config.github_client_id}).\n"
+        f"That app's callback URL must be exactly {config.frontend_url}/api/auth/github/callback"
+    )
+
+
 def _serve(args: argparse.Namespace) -> int:
     from .api import create_app
 
     load_dotenv()  # settings and the GitHub app's secret can live in backend/.env
 
     app = create_app()
+    print(sign_in_banner(app.extensions["lopper_config"]), flush=True)
     app.run(host=args.host, port=args.port, debug=args.debug)
     return 0
 
