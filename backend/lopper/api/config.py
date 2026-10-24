@@ -108,8 +108,10 @@ class Config:
             github_app=github_app,
             secret_key=env.get("SECRET_KEY") or None,
             github_scopes=env.get("GITHUB_SCOPES", cls.github_scopes),
-            frontend_url=env.get("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/"),
-            proxy_secret=env.get("PROXY_SECRET") or None,
+            # A value pasted into a host's settings often brings a stray space or newline. Without cleaning, a newline in
+            # the site address made every redirect after sign-in a 500 and the cookies not Secure (it didn't start with https).
+            frontend_url=clean_setting(env.get("FRONTEND_URL") or "").rstrip("/") or DEFAULT_FRONTEND_URL,
+            proxy_secret=clean_setting(env.get("PROXY_SECRET") or "") or None,
             chat_api_key=clean_setting(env.get("OPEN_ROUTER_API_KEY") or env.get("OPENROUTER_API_KEY") or "") or None,
             chat_model=clean_setting(env.get("AI_MODEL") or "") or cls.chat_model,
             chats_per_minute=_positive_int(env, "CHATS_PER_MINUTE", cls.chats_per_minute),

@@ -124,3 +124,51 @@ def test_a_bad_chat_limit_stops_the_server_with_a_clear_message_that_doesnt_echo
 
 def test_an_empty_chat_limit_means_the_default(monkeypatch):
     assert chat_settings(monkeypatch, CHATS_PER_MINUTE="  ")[2] == 10
+
+
+def frontend_config(monkeypatch, **env):
+    for name in ("FRONTEND_URL", "PROXY_SECRET"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    return Config.from_env()
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        "https://lopper.example.workers.dev",
+        "  https://lopper.example.workers.dev\n",  # the stray space and newline that came with a paste
+        "https://lopper.example.workers.dev/",
+        '"https://lopper.example.workers.dev"',
+        "﻿https://lopper.example.workers.dev",  # an invisible character
+        " https://lopper.example.workers.dev/ \r\n",
+    ],
+)
+def test_the_site_address_is_cleaned_so_redirects_and_the_secure_cookie_still_work(monkeypatch, pasted):
+    config = frontend_config(monkeypatch, FRONTEND_URL=pasted)
+    assert config.frontend_url == "https://lopper.example.workers.dev"
+    assert config.cookie_secure is True
+    assert config.allowed_origins >= {"https://lopper.example.workers.dev"}
+
+
+def test_a_dirty_site_address_no_longer_breaks_the_redirect_after_sign_in(monkeypatch, tmp_path):
+    """The sign-in routes send the browser back to FRONTEND_URL. A newline in it made that redirect a 500."""
+    from dataclasses import replace
+
+    from lopper.api import create_app
+
+    config = replace(frontend_config(monkeypatch, FRONTEND_URL="  https://lopper.example.workers.dev\n"), database=str(tmp_path / "t.db"))
+    app = create_app(config)
+    try:
+        response = app.test_client().get("/api/auth/github/login")  # sign-in isn't set up here, so it sends you back with a reason
+        assert response.status_code == 302
+        assert response.headers["Location"] == "https://lopper.example.workers.dev/#/auth/error/not_configured"
+    finally:
+        app.extensions["lopper_pool"].close()
+
+
+def test_the_forwarders_shared_secret_is_cleaned_so_a_pasted_newline_cant_stop_it_matching(monkeypatch):
+    assert frontend_config(monkeypatch, PROXY_SECRET="  s3cret\n").proxy_secret == "s3cret"
+    assert frontend_config(monkeypatch, PROXY_SECRET="   ").proxy_secret is None
+    assert frontend_config(monkeypatch).proxy_secret is None
