@@ -1,8 +1,10 @@
-# Render Blueprint for the Lopper API. In Render: New > Blueprint, and pick this repo.
+# Render Blueprint for the Lopper API. In Render: New > Blueprint, and pick this repo (the prod branch).
 # The site itself goes on Cloudflare Pages and forwards /api here. See DEPLOY.md.
 services:
   - type: web
     name: lopper-api
+    # Deploys come from the prod branch, not main. To release, merge main into prod. See "Branches and releases" in DEPLOY.md.
+    branch: prod
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend

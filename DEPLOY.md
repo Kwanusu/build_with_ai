@@ -10,6 +10,24 @@ Three pieces, each on its own service:
 
 The site calls `/api` on its own address and the function in `functions/api/[[path]].ts` forwards it to Render. To the browser the API is the same site, so the sign-in cookie works and there is no CORS to set up.
 
+## Branches and releases
+
+- **`main`** is for merging and testing. Feature branches merge into it, and nothing is deployed from it.
+- **`prod`** is what is deployed. Render and Cloudflare both build from it, and nothing else.
+
+To release, merge `main` into `prod` and push it:
+
+```
+git switch prod
+git merge --ff-only main
+git push origin prod
+git switch main
+```
+
+`--ff-only` means `prod` can only ever be a point on `main`'s history, so what you deploy is always something that was merged and tested. If it refuses, `prod` has a commit that `main` doesn't, so stop and look at it. Don't commit to `prod` directly. To roll back, put `prod` back on an earlier commit of `main` (`git push --force-with-lease origin <commit>:prod`) and let both services rebuild.
+
+Both services have to be told to watch `prod`. `render.yaml` does it for Render when the service is created from the Blueprint. For a service that already exists, and for Cloudflare, set it by hand (steps 2 and 3 below).
+
 Do the steps in this order, because each one needs an address from the one before.
 
 ## 1. Supabase
@@ -20,7 +38,7 @@ Do the steps in this order, because each one needs an address from the one befor
 
 ## 2. Render (the API)
 
-1. **New > Blueprint**, choose this repo. Render reads `render.yaml`.
+1. **New > Blueprint**, choose this repo and the `prod` branch. Render reads `render.yaml` from it, which sets `branch: prod` on the service. If the service already exists on `main`, open it, then **Settings > Build & Deploy > Branch**, and change it to `prod`.
 2. Fill in the values it asks for:
    - `DATABASE_URL`: from step 1.
    - `FRONTEND_URL`: the address the site will have, for example `https://lopper.pages.dev`. If you don't know it yet, put your guess and fix it after step 3.
@@ -36,6 +54,8 @@ Cloudflare has two kinds of project that can serve the site. Both work, and both
 **Worker** (`wrangler.jsonc` and `worker/index.ts`): **Workers & Pages > Create > Import a repository**, choose this repo, and name the Worker `lopper` (it must match `name` in `wrangler.jsonc`). Build command `npm run build`, deploy command `npx wrangler deploy`. Add the variable `NODE_VERSION` = `22` under build variables. Only `/api/*` runs the Worker. Everything else is served straight from `dist/`.
 
 **Pages** (`functions/api/[[path]].ts`): **Workers & Pages > Create > Pages > Connect to Git**, choose this repo. Build command `npm run build`, output folder `dist`, and the variable `NODE_VERSION` = `22`.
+
+Either way, set the production branch to `prod`, because it isn't kept in this repo. For a Worker, that is **Settings > Builds > Branch control > Production branch**, and for Pages it is **Settings > Builds & deployments > Production branch**. Leave builds for other branches off, or on as previews only, so a push to `main` never goes live.
 
 Either way, under **Settings > Variables and Secrets** (runtime variables, not build variables), add:
 
