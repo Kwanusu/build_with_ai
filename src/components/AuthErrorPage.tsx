@@ -2,7 +2,7 @@ import { signInHref } from "../api";
 import { useAuth } from "../auth";
 import { AUTH_ERROR } from "../content";
 import { Frame } from "./Connect";
-import { TriangleAlertIcon } from "./ui";
+import { Button, TriangleAlertIcon } from "./ui";
 
 /** Where the server sends you back to when GitHub sign-in didn't work. `code` says why. */
 export function AuthErrorPage({ code }: { code: string }) {
@@ -22,13 +22,13 @@ export function AuthErrorPage({ code }: { code: string }) {
         </p>
         <div className="flex flex-wrap gap-2">
           {canRetry && (
-            <a className="btn btn-primary btn-lg" href={signInHref}>
+            <Button href={signInHref} variant="primary" size="lg">
               {AUTH_ERROR.retry}
-            </a>
+            </Button>
           )}
-          <a className={`btn ${canRetry ? "btn-secondary" : "btn-primary"} btn-lg`} href="#/scan">
+          <Button href="#/scan" variant={canRetry ? "secondary" : "primary"} size="lg">
             {AUTH_ERROR.publicRepo}
-          </a>
+          </Button>
         </div>
       </div>
     </Frame>

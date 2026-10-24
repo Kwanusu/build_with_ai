@@ -1,23 +1,62 @@
 import type { ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary";
+type ButtonVariant = "primary" | "secondary" | "plain";
 type ButtonSize = "sm" | "md" | "lg";
 
-interface ButtonProps {
-  href: string;
+interface ButtonBaseProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   children: ReactNode;
 }
 
+/** With `href` it renders a link, opening a new tab when `external`. */
+interface ButtonLinkProps extends ButtonBaseProps {
+  href: string;
+  external?: boolean;
+}
+
+/** Without `href` it renders a `<button>`. `busy` sets aria-busy while an action runs. */
+interface ButtonActionProps extends ButtonBaseProps {
+  href?: undefined;
+  type?: "button" | "submit";
+  onClick?: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  "aria-label"?: string;
+}
+
+type ButtonProps = ButtonLinkProps | ButtonActionProps;
+
 const SIZE_CLASS: Record<ButtonSize, string> = { sm: "btn-sm", md: "", lg: "btn-lg" };
 
 /** Use variant="primary" (the ochre fill) once per view, for the main action. */
-export function Button({ href, variant = "secondary", size = "md", children }: ButtonProps) {
+export function Button(props: ButtonProps) {
+  const { variant = "secondary", size = "md", children } = props;
+  const className = `btn btn-${variant} ${SIZE_CLASS[size]}`.trim();
+
+  if (props.href !== undefined) {
+    return (
+      <a
+        href={props.href}
+        className={className}
+        {...(props.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <a href={href} className={`btn btn-${variant} ${SIZE_CLASS[size]}`.trim()}>
+    <button
+      type={props.type ?? "button"}
+      className={className}
+      onClick={props.onClick}
+      disabled={props.disabled}
+      aria-busy={props.busy}
+      aria-label={props["aria-label"]}
+    >
       {children}
-    </a>
+    </button>
   );
 }
 

@@ -18,7 +18,7 @@ import { scanHash } from "../route";
 import { Connect, Frame } from "./Connect";
 import { Findings } from "./Findings";
 import { PullRequestCreated } from "./PullRequestCreated";
-import { LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
+import { Button, LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
 
 type View =
   | { kind: "form"; notice?: string; initialUrl?: string }
@@ -233,13 +233,13 @@ function ErrorView({ message, repoUrl, onRetry }: { message: string; repoUrl?: s
         {again && <Notice tone="error">{again}</Notice>}
         <div className="flex flex-wrap gap-2">
           {repoUrl && (
-            <button type="button" className="btn btn-primary btn-lg" onClick={retry} disabled={busy} aria-busy={busy}>
+            <Button variant="primary" size="lg" onClick={retry} disabled={busy} busy={busy}>
               {SCAN.error.retry}
-            </button>
+            </Button>
           )}
-          <a className="btn btn-secondary btn-lg" href="#/scan">
+          <Button href="#/scan" size="lg">
             {SCAN.error.other}
-          </a>
+          </Button>
         </div>
       </div>
     </Frame>
@@ -360,23 +360,15 @@ function Results({
 
       <div className="flex flex-wrap items-center gap-2">
         {!empty && scan.can_tick && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={createPr}
-            disabled={creating || ticked === 0}
-            aria-busy={creating}
-          >
+          <Button variant="primary" onClick={createPr} disabled={creating || ticked === 0} busy={creating}>
             {creating && <Spinner />}
             {creating ? SCAN.results.creatingPr : SCAN.results.createPr}
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn btn-secondary" onClick={rescan} disabled={busy} aria-busy={busy}>
+        <Button onClick={rescan} disabled={busy} busy={busy}>
           {busy ? SCAN.results.rescanning : SCAN.results.rescan}
-        </button>
-        <a className="btn btn-secondary" href="#/scan">
-          {SCAN.results.otherRepo}
-        </a>
+        </Button>
+        <Button href="#/scan">{SCAN.results.otherRepo}</Button>
         {!empty && scan.can_tick && (
           <p className="type-small c-muted" aria-live="polite">
             {plural(ticked, "item", "items")} ticked. {ticked === 0 ? SCAN.results.prHelp : SCAN.results.tickHelp}

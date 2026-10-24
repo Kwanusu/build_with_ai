@@ -24,9 +24,9 @@ function Account() {
       <span className="type-label c-text hidden sm:inline">
         <span className="sr-only">{ACCOUNT.signedInAs} </span>@{auth.user.login}
       </span>
-      <button type="button" className="btn btn-plain btn-sm" onClick={signOut} disabled={busy} aria-busy={busy}>
+      <Button variant="plain" size="sm" onClick={signOut} disabled={busy} busy={busy}>
         {busy ? ACCOUNT.signingOut : ACCOUNT.signOut}
-      </button>
+      </Button>
     </div>
   );
 }

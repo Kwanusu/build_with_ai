@@ -1,7 +1,7 @@
 import type { PullRequestResult } from "../api";
 import { PULL_REQUEST } from "../content";
 import { Frame } from "./Connect";
-import { CircleCheckIcon } from "./ui";
+import { Button, CircleCheckIcon } from "./ui";
 
 interface PullRequestCreatedProps {
   result: PullRequestResult;
@@ -24,12 +24,12 @@ export function PullRequestCreated({ result, repo, onBack }: PullRequestCreatedP
           #{pull.number} · {pull.branch}
         </p>
         <div className="flex flex-wrap gap-2">
-          <a className="btn btn-primary btn-lg" href={pull.url} target="_blank" rel="noopener noreferrer">
+          <Button href={pull.url} external variant="primary" size="lg">
             {PULL_REQUEST.open}
-          </a>
-          <button type="button" className="btn btn-secondary btn-lg" onClick={onBack}>
+          </Button>
+          <Button size="lg" onClick={onBack}>
             {PULL_REQUEST.back}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { ApiError, listRepos, signInHref, type RepoSummary } from "../api";
 import { useAuth } from "../auth";
 import { CONNECT, SCAN } from "../content";
 import { timeAgo } from "../format";
-import { Badge, CircleAlertIcon, Notice, Spinner } from "./ui";
+import { Badge, Button, CircleAlertIcon, Notice, Spinner } from "./ui";
 
 export function Frame({ children }: { children: ReactNode }) {
   return <section className="page py-6 flex flex-col gap-4">{children}</section>;
@@ -80,14 +80,15 @@ export function UrlForm({
         )}
       </div>
       <div>
-        <button
+        <Button
           type="submit"
-          className={`btn ${primary ? "btn-primary" : "btn-secondary"} btn-lg`}
+          variant={primary ? "primary" : "secondary"}
+          size="lg"
           disabled={busy || url.trim() === ""}
-          aria-busy={busy}
+          busy={busy}
         >
           {busy ? SCAN.form.submitting : SCAN.form.submit}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -133,9 +134,9 @@ export function Connect({
           </div>
         )}
         <div className="flex flex-col items-start gap-1">
-          <a className="btn btn-primary btn-lg" href={signInHref}>
+          <Button href={signInHref} variant="primary" size="lg">
             {CONNECT.signedOut.signIn}
-          </a>
+          </Button>
           <p className="type-small c-muted">{CONNECT.signedOut.permissions}</p>
         </div>
         <div className="flex flex-col gap-2 pt-3">
@@ -237,9 +238,7 @@ function RepoPicker({
       {state.kind === "error" && (
         <div className="flex flex-col items-start gap-2 reading">
           <Notice tone="error">{state.message}</Notice>
-          <button type="button" className="btn btn-secondary" onClick={() => void load()}>
-            {CONNECT.picker.retry}
-          </button>
+          <Button onClick={() => void load()}>{CONNECT.picker.retry}</Button>
         </div>
       )}
 
@@ -279,16 +278,14 @@ function RepoPicker({
                           {[repo.language, `Pushed ${timeAgo(repo.pushed_at)}`].filter(Boolean).join(" · ")}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
+                      <Button
                         onClick={() => void scan(repo)}
                         disabled={starting !== undefined}
-                        aria-busy={starting === repo.full_name}
+                        busy={starting === repo.full_name}
                         aria-label={`Scan ${repo.full_name}`}
                       >
                         {starting === repo.full_name ? CONNECT.picker.starting : CONNECT.picker.scan}
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
