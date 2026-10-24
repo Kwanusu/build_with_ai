@@ -12,6 +12,22 @@ DEFAULT_DATABASE_PATH = str(Path(__file__).resolve().parents[2] / "lopper.db")
 DEFAULT_FRONTEND_URL = "http://localhost:5173"
 
 
+def _github_credentials(env) -> tuple[str | None, str | None]:
+    """The GitHub OAuth app to sign in with.
+
+    Two apps can be configured side by side in one .env file: CLIENT_ID and CLIENT_SECRET are the local development app
+    (its callback is http://localhost:5173/...), and GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are the deployed one.
+    A complete CLIENT_ID and CLIENT_SECRET pair wins, so a developer's machine uses the local app. A host that sets only
+    the GITHUB_ pair (Render) uses that one. The two are never mixed: an id from one app with the secret of the other
+    would fail at GitHub.
+    """
+    local = (env.get("CLIENT_ID") or "").strip(), (env.get("CLIENT_SECRET") or "").strip()
+    if all(local):
+        return local
+    deployed = (env.get("GITHUB_CLIENT_ID") or "").strip() or None, (env.get("GITHUB_CLIENT_SECRET") or "").strip() or None
+    return deployed
+
+
 @dataclass(frozen=True)
 class Config:
     # A SQLite file path, or a postgresql:// address (for example Supabase).
@@ -53,6 +69,7 @@ class Config:
     @classmethod
     def from_env(cls, **overrides) -> "Config":
         env = os.environ
+        client_id, client_secret = _github_credentials(env)
         config = cls(
             database=clean_setting(env.get("DATABASE_URL") or env.get("DATABASE_PATH") or "") or DEFAULT_DATABASE_PATH,
             cors_origins=tuple(
@@ -60,8 +77,8 @@ class Config:
             ),
             scan_workers=int(env.get("SCAN_WORKERS", cls.scan_workers)),
             scans_per_minute=int(env.get("SCANS_PER_MINUTE", cls.scans_per_minute)),
-            github_client_id=env.get("GITHUB_CLIENT_ID") or None,
-            github_client_secret=env.get("GITHUB_CLIENT_SECRET") or None,
+            github_client_id=client_id,
+            github_client_secret=client_secret,
             secret_key=env.get("SECRET_KEY") or None,
             github_scopes=env.get("GITHUB_SCOPES", cls.github_scopes),
             frontend_url=env.get("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/"),
