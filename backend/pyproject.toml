@@ -12,7 +12,7 @@ dependencies = [
   "flask>=3.0",
   "flask-cors>=4.0",
   "cryptography>=42",
-  "google-genai>=2.33",
+  "openai>=3.0",
 ]
 
 [project.optional-dependencies]

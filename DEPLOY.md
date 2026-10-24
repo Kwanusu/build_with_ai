@@ -25,7 +25,7 @@ Do the steps in this order, because each one needs an address from the one befor
    - `DATABASE_URL`: from step 1.
    - `FRONTEND_URL`: the address the site will have, for example `https://lopper.pages.dev`. If you don't know it yet, put your guess and fix it after step 3.
    - `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`: leave empty to run without sign-in for now.
-   - `GEMINI_API_KEY` and `AI_MODEL`: leave `GEMINI_API_KEY` empty to run without the chat panel. With a key, every question is a paid call to Gemini, and `AI_MODEL` picks the model (see [Ask about a scan](backend/README.md#ask-about-a-scan)).
+   - `OPEN_ROUTER_API_KEY` and `AI_MODEL`: leave `OPEN_ROUTER_API_KEY` empty to run without the chat panel. With a key, every question uses your OpenRouter credits, and `AI_MODEL` picks the model (see [Ask about a scan](backend/README.md#ask-about-a-scan)).
 3. After the first deploy, open `https://<your-service>.onrender.com/api/health`. It should say `{"database":true,"status":"ok"}`.
 4. In the service's **Environment** tab, copy the generated `PROXY_SECRET`. You need it in step 3.
 
@@ -58,7 +58,7 @@ Then put its client ID and secret into the Render service's environment and rede
 ## Things to know
 
 - **Free Render services sleep** after about 15 minutes idle. The next visit waits roughly a minute while it wakes. A scan that is running when the service sleeps is lost, and the site offers to scan again.
-- **Chat costs money and holds a thread.** With `GEMINI_API_KEY` set, anyone who can open a scan can ask about it, up to `CHATS_PER_MINUTE` (10) questions a minute per visitor. A question holds one of the API's 8 threads while Gemini answers, up to 90 seconds. Set a spend cap or quota on the key in Google AI Studio or Google Cloud, and remove the key from Render to switch chat off.
+- **Chat costs money and holds a thread.** With `OPEN_ROUTER_API_KEY` set, anyone who can open a scan can ask about it, up to `CHATS_PER_MINUTE` (10) questions a minute per visitor. A question holds one of the API's 8 threads while the model answers, up to 90 seconds. Set a credit limit on the key at openrouter.ai/keys, and remove the key from Render to switch chat off.
 - **One worker.** Scans run in threads inside the API process and the rate limit is kept in memory, so the Dockerfile runs one gunicorn worker with threads. Don't raise `--workers` without moving both elsewhere.
 - **Secrets** live only in Render's and Cloudflare's settings. Never put them in the repo.
 - **Local development doesn't change.** With no `DATABASE_URL` the API uses the SQLite file `backend/lopper.db`.

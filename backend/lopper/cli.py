@@ -103,9 +103,9 @@ def sign_in_banner(config) -> str:
 
 def chat_banner(config) -> str:
     """What to tell the person starting the server about the chat panel. The model name is public, the key never printed."""
-    if not config.gemini_api_key:
-        return "Chat is off (it needs GEMINI_API_KEY in .env)."
-    return f"Chat is on, using the model {config.chat_model}. Each question is a paid call to Gemini."
+    if not config.chat_api_key:
+        return "Chat is off (it needs OPEN_ROUTER_API_KEY in .env)."
+    return f"Chat is on, using the model {config.chat_model} through OpenRouter. Each question uses your OpenRouter credits."
 
 
 def _serve(args: argparse.Namespace) -> int:

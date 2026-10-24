@@ -1,29 +1,25 @@
-"""Asking Gemini about a scan. See ../chat.py for what it is told.
+"""Asking a model about a scan, through OpenRouter. See ../chat.py for what it is told.
 
-Every failure becomes a ChatError with fixed text. Nothing from the provider's reply, and never the API key, is passed on
-or logged. The call is made from the server, so the key stays in .env.
+OpenRouter speaks the OpenAI chat API, so this uses the `openai` package pointed at OpenRouter. Every failure becomes a
+ChatError with fixed text. Nothing from the provider's reply, and never the API key, is passed on or logged. The call is
+made from the server, so the key stays in .env.
 """
 
 from __future__ import annotations
 
 import logging
 
-from google import genai
-from google.genai import errors, types
+import openai
 
 from ..chat import MAX_REPLY_CHARS, REFUSAL_REPLY, SYSTEM_PROMPT, build_turns
 
 log = logging.getLogger(__name__)
 
-# Room for the model's thinking as well as a short answer.
-MAX_OUTPUT_TOKENS = 8192
+BASE_URL = "https://openrouter.ai/api/v1"
+# Room for a model that thinks before it answers, as well as a short answer.
+MAX_TOKENS = 8000
 # Under gunicorn's 120 second timeout, so a slow call ends here and not as a killed worker.
-TIMEOUT_SECONDS = 90
-
-# Reasons Gemini gives for declining to answer.
-DECLINED = frozenset(
-    {types.FinishReason.SAFETY, types.FinishReason.BLOCKLIST, types.FinishReason.PROHIBITED_CONTENT, types.FinishReason.SPII}
-)
+TIMEOUT_SECONDS = 90.0
 
 
 class ChatError(Exception):
@@ -44,49 +40,48 @@ def failed() -> ChatError:
     return ChatError("We couldn't get an answer just now. Try again in a moment. Nothing has been changed.", "chat_failed", 502)
 
 
-def _problem(error: errors.APIError) -> ChatError:
-    """The ChatError for a Gemini error. Only the status is logged: the message could repeat what we sent."""
-    # Gemini answers a bad key with 400 and a reason in the details, not with 401. 402 means the key's project has no
-    # billing set up. None of these fix themselves, so it isn't a "try again in a moment".
-    if error.code in (401, 402, 403) or "API_KEY_INVALID" in str(error.details):
-        log.error("Gemini won't answer for this key (status %s, %s)", error.code, error.status)
+def _problem(error: openai.APIStatusError) -> ChatError:
+    """The ChatError for an error status from OpenRouter. Only the status is logged: the message could repeat what we sent."""
+    # 401 is a bad key, 402 is an account with no credits left, and 403 is a key or model that isn't allowed. None of these
+    # fix themselves, so none is a "try again in a moment".
+    if error.status_code in (401, 402, 403):
+        log.error("OpenRouter won't answer for this key (status %s)", error.status_code)
         return unavailable()
-    if error.code in (429, 503):  # out of quota, or the model is overloaded
+    if error.status_code in (429, 503):  # a rate limit, or no provider free for the model right now
         return busy()
-    log.error("Gemini returned status %s (%s)", error.code, error.status)
+    log.error("OpenRouter returned status %s", error.status_code)  # for example 404: AI_MODEL isn't a model it has
     return failed()
 
 
 class Assistant:
-    """Answers questions about one scan. `client` is for tests; otherwise it talks to Gemini with `api_key`."""
+    """Answers questions about one scan. `client` is for tests; otherwise it talks to OpenRouter with `api_key`."""
 
-    def __init__(self, api_key: str | None, model: str, client: genai.Client | None = None) -> None:
+    def __init__(self, api_key: str | None, model: str, client: openai.OpenAI | None = None) -> None:
         self.model = model
-        self.client = client or genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=TIMEOUT_SECONDS * 1000))
+        self.client = client or openai.OpenAI(api_key=api_key, base_url=BASE_URL, timeout=TIMEOUT_SECONDS, max_retries=1)
 
     def reply(self, scan: dict, history: list[dict]) -> str:
         """The assistant's answer to the last message in `history`. Raises ChatError when it can't."""
-        contents = [
-            types.Content(
-                role="model" if turn["role"] == "assistant" else "user",
-                parts=[types.Part(text=text) for text in turn["texts"]],
-            )
-            for turn in build_turns(scan, history)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+            {"role": turn["role"], "content": "\n\n".join(turn["texts"])} for turn in build_turns(scan, history)
         ]
-        config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, max_output_tokens=MAX_OUTPUT_TOKENS)
         try:
-            response = self.client.models.generate_content(model=self.model, contents=contents, config=config)
-        except errors.APIError as problem:
+            response = self.client.chat.completions.create(model=self.model, messages=messages, max_tokens=MAX_TOKENS)
+        except openai.APIStatusError as problem:
             raise _problem(problem) from None
-        except Exception as problem:  # noqa: BLE001 - a dropped connection or a timeout; the message isn't logged
-            log.error("Couldn't get an answer from Gemini (%s)", type(problem).__name__)
+        except openai.APIConnectionError:  # a dropped connection, or a timeout
+            log.error("Couldn't reach OpenRouter")
             raise failed() from None
 
-        candidate = response.candidates[0] if response.candidates else None
-        if (response.prompt_feedback and response.prompt_feedback.block_reason) or (candidate and candidate.finish_reason in DECLINED):
+        # OpenRouter can answer 200 with an error in the body and no choices when a provider fails part way.
+        choice = response.choices[0] if response.choices else None
+        if choice is None:
+            log.error("OpenRouter returned no choices")
+            raise failed()
+        if choice.finish_reason == "content_filter" or getattr(choice.message, "refusal", None):
             return REFUSAL_REPLY
-        text = (response.text or "").strip()
+        text = (choice.message.content or "").strip()
         if not text:
-            log.error("Gemini returned no text (finish reason %s)", getattr(candidate and candidate.finish_reason, "name", None))
+            log.error("OpenRouter returned no text (finish reason %s)", choice.finish_reason)
             raise failed()
         return text if len(text) <= MAX_REPLY_CHARS else text[: MAX_REPLY_CHARS - 1].rstrip() + "…"

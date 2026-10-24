@@ -7,7 +7,7 @@ export interface AuthValue {
   user: User | null;
   /** False when the server has no GitHub app set up, so there is nothing to sign in to. */
   signInAvailable: boolean;
-  /** False when the server has no Gemini key, so the chat panel isn't offered. */
+  /** False when the server has no chat key, so the chat panel isn't offered. */
   chatAvailable: boolean;
   /** Ask the server again, for example after it says the sign-in has ended. */
   refresh: () => Promise<void>;

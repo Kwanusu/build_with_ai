@@ -64,9 +64,9 @@ def create_app(
         GitHubClient(config.github_client_id, config.github_client_secret, config.github_scopes) if config.auth_enabled else None
     )
 
-    # Chat is only switched on when a Gemini API key is set (or a test supplies an assistant).
+    # Chat is only switched on when an OpenRouter key is set (or a test supplies an assistant).
     app.extensions["lopper_assistant"] = assistant or (
-        Assistant(config.gemini_api_key, config.chat_model) if config.gemini_api_key else None
+        Assistant(config.chat_api_key, config.chat_model) if config.chat_api_key else None
     )
 
     CORS(app, resources={r"/api/*": {"origins": sorted(config.allowed_origins)}}, supports_credentials=True)

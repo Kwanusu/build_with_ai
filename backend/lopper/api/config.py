@@ -54,9 +54,10 @@ class Config:
     # Set when the site forwards /api to this server (Cloudflare Pages). It lets the forwarder say who the real client is.
     proxy_secret: str | None = None
 
-    # The chat panel on a results page. It is switched on only when a Gemini API key is set. AI_MODEL picks the model.
-    gemini_api_key: str | None = None
-    chat_model: str = "gemini-flash-latest"
+    # The chat panel on a results page, answered through OpenRouter. It is switched on only when a key is set.
+    # AI_MODEL picks the model, as an OpenRouter id like google/gemini-2.5-flash.
+    chat_api_key: str | None = None
+    chat_model: str = "google/gemini-2.5-flash"
     # How many chat messages one address can send per minute. Each one is a paid model call.
     chats_per_minute: int = 10
     extra: dict = field(default_factory=dict)
@@ -92,7 +93,7 @@ class Config:
             github_scopes=env.get("GITHUB_SCOPES", cls.github_scopes),
             frontend_url=env.get("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/"),
             proxy_secret=env.get("PROXY_SECRET") or None,
-            gemini_api_key=clean_setting(env.get("GEMINI_API_KEY") or "") or None,
+            chat_api_key=clean_setting(env.get("OPEN_ROUTER_API_KEY") or env.get("OPENROUTER_API_KEY") or "") or None,
             chat_model=clean_setting(env.get("AI_MODEL") or "") or cls.chat_model,
             chats_per_minute=int(env.get("CHATS_PER_MINUTE", cls.chats_per_minute)),
         )

@@ -27,9 +27,9 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
-      # Switches on the chat panel on the results page. Leave empty to run without it. Each question is a paid call to Gemini.
-      - key: GEMINI_API_KEY
+      # Switches on the chat panel on the results page. Leave empty to run without it. Each question uses OpenRouter credits.
+      - key: OPEN_ROUTER_API_KEY
         sync: false
-      # Which Gemini model answers. Leave empty for gemini-flash-latest.
+      # Which model answers, as an OpenRouter id like google/gemini-2.5-flash. Leave empty for that one.
       - key: AI_MODEL
         sync: false

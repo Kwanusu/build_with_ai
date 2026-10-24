@@ -1,8 +1,9 @@
 import logging
 from types import SimpleNamespace
 
+import httpx2 as httpx
+import openai
 import pytest
-from google.genai import errors, types
 
 from lopper import chat
 from lopper.api.assistant import Assistant, ChatError
@@ -165,79 +166,72 @@ def test_one_question_carries_the_scan_the_question_and_the_selection_in_order()
     ]
 
 
-# ----- the assistant that talks to Gemini -----
+# ----- the assistant that talks to OpenRouter -----
 
 
 class FakeClient:
-    """Stands in for the Gemini client: no network, and it remembers what it was asked."""
+    """Stands in for the OpenAI-style client: no network, and it remembers what it was asked."""
 
     def __init__(self, response=None, error=None):
         self.response, self.error, self.calls = response, error, []
-        self.models = SimpleNamespace(generate_content=self.generate_content)
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
 
-    def generate_content(self, **request):
+    def create(self, **request):
         self.calls.append(request)
         if self.error:
             raise self.error
         return self.response
 
 
-def answer(*texts, finish_reason=types.FinishReason.STOP):
-    content = types.Content(role="model", parts=[types.Part(text=value) for value in texts]) if texts else None
-    return types.GenerateContentResponse(candidates=[types.Candidate(content=content, finish_reason=finish_reason)])
+def completion(*texts, finish_reason="stop", refusal=None):
+    message = SimpleNamespace(content="".join(texts) if texts else None, refusal=refusal)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message, finish_reason=finish_reason)])
 
 
-def api_error(cls, code, status, reason=""):
-    body = {"error": {"code": code, "message": "provider said AIza-LEAK", "status": status, "details": [{"reason": reason}]}}
-    return cls(code, body)
+REQUEST = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+
+
+def status_error(cls, status):
+    return cls("provider said sk-or-LEAK", response=httpx.Response(status, request=REQUEST), body=None)
 
 
 HISTORY = [{"role": "user", "content": "Is left-pad safe to remove?"}]
 
 
-def test_the_assistant_sends_the_scan_and_the_question_with_our_instructions_and_no_tools():
+def test_the_assistant_sends_our_instructions_then_the_scan_and_the_question_and_no_tools():
     scan = a_scan([a_finding()])
-    client = FakeClient(answer("Nothing ", "imports it. "))
-    assert Assistant("key", "gemini-test", client=client).reply(scan, HISTORY) == "Nothing imports it."
+    client = FakeClient(completion("Nothing ", "imports it. "))
+    assert Assistant("key", "test/model", client=client).reply(scan, HISTORY) == "Nothing imports it."
 
     (request,) = client.calls
-    assert request["model"] == "gemini-test"
-    config = request["config"]
-    assert config.system_instruction == chat.SYSTEM_PROMPT and config.max_output_tokens == 8192
-    assert config.tools is None
-    assert [(c.role, [p.text for p in c.parts]) for c in request["contents"]] == [
-        ("user", [scan_context(scan), "Is left-pad safe to remove?", selection_note(scan)])
+    assert request["model"] == "test/model" and request["max_tokens"] == 8000
+    assert request["messages"] == [
+        {"role": "system", "content": chat.SYSTEM_PROMPT},
+        {"role": "user", "content": "\n\n".join([scan_context(scan), "Is left-pad safe to remove?", selection_note(scan)])},
     ]
+    assert "tools" not in request
 
 
-def test_earlier_answers_go_back_as_the_models_own_turns():
-    scan = a_scan([a_finding()])
+def test_earlier_answers_go_back_as_the_assistants_own_turns():
     history = [
         {"role": "user", "content": "Why?"},
         {"role": "assistant", "content": "Nothing imports it."},
         {"role": "user", "content": "Safe?"},
     ]
-    client = FakeClient(answer("Yes."))
-    Assistant("key", "m", client=client).reply(scan, history)
-    assert [c.role for c in client.calls[0]["contents"]] == ["user", "model", "user"]
+    client = FakeClient(completion("Yes."))
+    Assistant("key", "m", client=client).reply(a_scan([a_finding()]), history)
+    assert [m["role"] for m in client.calls[0]["messages"]] == ["system", "user", "assistant", "user"]
+    assert client.calls[0]["messages"][2]["content"] == "Nothing imports it."
 
 
-@pytest.mark.parametrize(
-    "reason", [types.FinishReason.SAFETY, types.FinishReason.BLOCKLIST, types.FinishReason.PROHIBITED_CONTENT, types.FinishReason.SPII]
-)
-def test_a_declined_question_gets_our_fixed_answer(reason):
-    client = FakeClient(answer(finish_reason=reason))
-    assert Assistant("key", "m", client=client).reply(a_scan(), HISTORY) == chat.REFUSAL_REPLY
-
-
-def test_a_question_blocked_before_any_answer_gets_our_fixed_answer_too():
-    feedback = types.GenerateContentResponsePromptFeedback(block_reason=types.BlockedReason.SAFETY)
-    client = FakeClient(types.GenerateContentResponse(prompt_feedback=feedback))
+@pytest.mark.parametrize("kwargs", [{"finish_reason": "content_filter"}, {"refusal": "I can't help with that."}])
+def test_a_declined_question_gets_our_fixed_answer(kwargs):
+    client = FakeClient(completion(**kwargs))
     assert Assistant("key", "m", client=client).reply(a_scan(), HISTORY) == chat.REFUSAL_REPLY
 
 
 def test_a_reply_too_long_to_send_back_is_cut_short():
-    client = FakeClient(answer("w" * (chat.MAX_REPLY_CHARS * 2)))
+    client = FakeClient(completion("w" * (chat.MAX_REPLY_CHARS * 2)))
     reply = Assistant("key", "m", client=client).reply(a_scan(), HISTORY)
     assert len(reply) <= chat.MAX_REPLY_CHARS and reply.endswith("…")
 
@@ -245,40 +239,46 @@ def test_a_reply_too_long_to_send_back_is_cut_short():
 @pytest.mark.parametrize(
     "error, code, status",
     [
-        # Gemini answers a bad key with 400 and a reason, not with 401.
-        (api_error(errors.ClientError, 400, "INVALID_ARGUMENT", "API_KEY_INVALID"), "chat_unavailable", 503),
-        (api_error(errors.ClientError, 403, "PERMISSION_DENIED"), "chat_unavailable", 503),
-        # 402: the key's Google project has no billing set up.
-        (api_error(errors.ClientError, 402, "RESOURCE_EXHAUSTED"), "chat_unavailable", 503),
-        (api_error(errors.ClientError, 429, "RESOURCE_EXHAUSTED"), "chat_busy", 429),
-        (api_error(errors.ServerError, 503, "UNAVAILABLE"), "chat_busy", 429),
-        (api_error(errors.ServerError, 500, "INTERNAL"), "chat_failed", 502),
-        (api_error(errors.ClientError, 404, "NOT_FOUND"), "chat_failed", 502),  # for example a wrong AI_MODEL
-        (api_error(errors.ClientError, 400, "INVALID_ARGUMENT"), "chat_failed", 502),
-        (ConnectionError("connection reset, key AIza-LEAK"), "chat_failed", 502),
-        (TimeoutError("timed out"), "chat_failed", 502),
+        (status_error(openai.AuthenticationError, 401), "chat_unavailable", 503),
+        (status_error(openai.APIStatusError, 402), "chat_unavailable", 503),  # no credits left
+        (status_error(openai.PermissionDeniedError, 403), "chat_unavailable", 503),
+        (status_error(openai.RateLimitError, 429), "chat_busy", 429),
+        (status_error(openai.InternalServerError, 503), "chat_busy", 429),  # no provider free for the model
+        (status_error(openai.InternalServerError, 500), "chat_failed", 502),
+        (status_error(openai.NotFoundError, 404), "chat_failed", 502),  # for example a wrong AI_MODEL
+        (status_error(openai.BadRequestError, 400), "chat_failed", 502),
+        (openai.APIConnectionError(request=REQUEST), "chat_failed", 502),
+        (openai.APITimeoutError(request=REQUEST), "chat_failed", 502),
     ],
 )
-def test_a_problem_with_gemini_becomes_fixed_text_and_nothing_from_the_provider_or_the_key(error, code, status, caplog):
+def test_a_problem_at_openrouter_becomes_fixed_text_and_nothing_from_the_provider_or_the_key(error, code, status, caplog):
     client = FakeClient(error=error)
     with caplog.at_level(logging.DEBUG), pytest.raises(ChatError) as problem:
-        Assistant("AIza-SECRET", "m", client=client).reply(a_scan(), HISTORY)
+        Assistant("sk-or-SECRET", "m", client=client).reply(a_scan(), HISTORY)
     assert (problem.value.code, problem.value.status) == (code, status)
     assert "Nothing has been changed" in problem.value.message
-    for leaked in ("AIza-SECRET", "AIza-LEAK", "provider said", "connection reset"):
+    for leaked in ("sk-or-SECRET", "sk-or-LEAK", "provider said"):
         assert leaked not in problem.value.message and leaked not in caplog.text
 
 
-@pytest.mark.parametrize("reason", [types.FinishReason.STOP, types.FinishReason.MAX_TOKENS])
+@pytest.mark.parametrize("reason", ["stop", "length"])
 def test_an_answer_with_no_text_is_a_failure_not_an_empty_reply(reason):
     with pytest.raises(ChatError) as problem:
-        Assistant("key", "m", client=FakeClient(answer(finish_reason=reason))).reply(a_scan(), HISTORY)
+        Assistant("key", "m", client=FakeClient(completion(finish_reason=reason))).reply(a_scan(), HISTORY)
     assert problem.value.code == "chat_failed"
 
 
-def test_the_real_client_is_built_from_the_key_and_model_without_calling_anyone():
-    assistant = Assistant("AIza-test", "gemini-test")
-    assert assistant.model == "gemini-test" and assistant.client is not None
+@pytest.mark.parametrize("choices", [[], None])
+def test_a_200_with_an_error_body_and_no_choices_is_a_failure(choices):
+    with pytest.raises(ChatError) as problem:
+        Assistant("key", "m", client=FakeClient(SimpleNamespace(choices=choices))).reply(a_scan(), HISTORY)
+    assert problem.value.code == "chat_failed"
+
+
+def test_the_real_client_talks_to_openrouter_and_isnt_built_with_anything_else():
+    assistant = Assistant("sk-or-test", "test/model")
+    assert assistant.model == "test/model"
+    assert str(assistant.client.base_url).startswith("https://openrouter.ai/api/v1")
 
 
 # ----- the API -----
@@ -302,7 +302,7 @@ def test_chat_is_off_until_an_assistant_is_set_up(app):
 
 
 def test_an_api_key_switches_chat_on(make_app):
-    assert make_app(gemini_api_key="AIza-test").test_client().get("/api/auth/me").get_json()["chat_available"] is True
+    assert make_app(chat_api_key="sk-or-test").test_client().get("/api/auth/me").get_json()["chat_available"] is True
 
 
 def test_chat_shows_up_in_who_is_signed_in(chat_app):

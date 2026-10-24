@@ -39,7 +39,7 @@ export interface User {
 export interface Me {
   user: User | null;
   sign_in_available: boolean;
-  /** False when the server has no Gemini key, so there is nothing to ask. */
+  /** False when the server has no chat key, so there is nothing to ask. */
   chat_available: boolean;
 }
 
