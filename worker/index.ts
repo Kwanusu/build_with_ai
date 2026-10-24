@@ -15,4 +15,6 @@ export async function handle(request: Request, env: WorkerEnv, send?: typeof fet
   return env.ASSETS.fetch(request);
 }
 
-export default { fetch: handle };
+// Cloudflare calls fetch(request, env, ctx). Pass on only what handle needs: its third parameter is a stand-in for fetch
+// that tests use, so handing it Cloudflare's context would make every /api request fail with a 502.
+export default { fetch: (request: Request, env: WorkerEnv, _ctx?: unknown) => handle(request, env) };

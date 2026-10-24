@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { forward } from "../worker/forward";
-import { handle } from "../worker/index";
+import worker, { handle } from "../worker/index";
 
 const ENV = { API_ORIGIN: "https://api.example.com", PROXY_SECRET: "shh" };
 
@@ -80,5 +80,30 @@ describe("the Worker", () => {
     const page = await handle(new Request("https://lopper.example.workers.dev/"), { ...ENV, ASSETS: assets }, send);
     expect(await page.text()).toBe("<html>site</html>");
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("the Worker as Cloudflare runs it", () => {
+  const assets = { fetch: async () => new Response("<html>site</html>") };
+  // Cloudflare calls fetch(request, env, ctx). The third argument is its execution context, never a function for calling the API.
+  const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("forwards /api to the API with the real fetch, however many arguments Cloudflare passes", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: URL) => {
+      calls.push(String(url));
+      return new Response('{"status":"ok"}', { status: 200 });
+    });
+    const response = await worker.fetch(new Request("https://lopper.example.workers.dev/api/health"), { ...ENV, ASSETS: assets }, ctx as never);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok" });
+    expect(calls).toEqual(["https://api.example.com/api/health"]);
+  });
+
+  it("serves the built site for everything else", async () => {
+    const page = await worker.fetch(new Request("https://lopper.example.workers.dev/"), { ...ENV, ASSETS: assets }, ctx as never);
+    expect(await page.text()).toBe("<html>site</html>");
   });
 });
