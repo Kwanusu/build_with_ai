@@ -5,12 +5,14 @@ import threading
 import time
 from collections import defaultdict, deque
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, make_response, request
 
 from ..repo import RepoError, parse_repo_url
 from ..scanner.models import FINDING_TYPES
-from .auth import SESSION_COOKIE, user_for_session
+from .auth import SESSION_COOKIE, end_all_sessions, user_for_session
 from .db import database_is_up
+from .github import GitHubError
+from .pulls import PullRequestError, github_problem, open_pull_request
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -140,3 +142,35 @@ def update_finding(finding_id: int):
     if problem == "report_only":
         return error("Lint issues are report only, so there's nothing to tick.", "report_only", 400)
     return jsonify({"finding": finding})
+
+
+@bp.post("/scans/<int:scan_id>/pull-request")
+def create_pull_request(scan_id: int):
+    """Open a pull request that makes the changes ticked on this scan. See pulls.py."""
+    user = current_user()
+    if not user:
+        return error("Sign in with GitHub to open a pull request.", "sign_in_required", 401)
+    github = current_app.extensions["lopper_github"]
+    if github is None:
+        return error("Sign-in isn't set up on this server, so it can't open pull requests.", "sign_in_unavailable", 503)
+    token = github_token(user)
+    if token is None:
+        return error("We couldn't read your GitHub sign-in, so please sign in again. Nothing has been changed.", "sign_in_required", 401)
+    scan = service().get_scan(scan_id, viewer_id=user["id"])
+    if not scan:
+        return error("We couldn't find that scan. It may have been replaced by a newer scan of the same repo.", "not_found", 404)
+    try:
+        result = open_pull_request(scan, github, token)
+    except PullRequestError as problem:
+        return jsonify({"error": problem.message, "code": problem.code, **problem.extra}), problem.status
+    except GitHubError as problem:
+        if problem.code == "token_invalid":
+            end_all_sessions(current_app.extensions["lopper_pool"], user["id"])
+            response = make_response(
+                jsonify({"error": "GitHub no longer accepts your sign-in. Sign in again to open a pull request. Nothing has been changed.", "code": "sign_in_required"}), 401
+            )
+            response.delete_cookie(SESSION_COOKIE, path="/")
+            return response
+        message, code, status = github_problem(problem, f"{scan['repo']['owner']}/{scan['repo']['name']}")
+        return error(message, code, status)
+    return jsonify(result), 201

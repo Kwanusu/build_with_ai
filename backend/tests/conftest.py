@@ -38,6 +38,15 @@ class FakeGitHub:
         self.exchange_error = None
         self.user_error = None
         self.repos_error = None
+        self.can_push = True
+        self.default_branch = "main"
+        self.pull_error = None
+        self.created = []  # every pull request asked for
+        # What is on the default branch. Line numbers match what the scanner reports for the `project` fixture.
+        self.files = {
+            "package.json": '{\n  "name": "demo",\n    "left-pad": "1",\n    "prettier": "3"\n}\n',
+            "src/a.ts": "import { z } from './z';\nexport function dead() {}\n",
+        }
         self.codes = []
         self.tokens_used = []
 
@@ -55,6 +64,21 @@ class FakeGitHub:
         if self.user_error:
             raise self.user_error
         return self.user
+
+    def get_repo(self, token, owner, name):
+        self.tokens_used.append(token)
+        if self.pull_error:
+            raise self.pull_error
+        return {"default_branch": self.default_branch, "can_push": self.can_push}
+
+    def read_file(self, token, owner, name, path, ref):
+        self.tokens_used.append(token)
+        return self.files.get(path)
+
+    def create_pull_request(self, token, owner, name, **details):
+        self.tokens_used.append(token)
+        self.created.append({"owner": owner, "name": name, **details})
+        return {"url": f"https://github.com/{owner}/{name}/pull/7", "number": 7, "branch": details["branch"]}
 
     def list_repos(self, token, limit=300):
         self.tokens_used.append(token)
