@@ -25,3 +25,24 @@ extension/out/
 # Cloudflare
 .wrangler/
 .dev.vars
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.coverage
+
+# Editors
+.idea/
+
+# VS Code extension test host (downloaded VS Code)
+extension/.vscode-test/
+
+# Keys and certificates
+*.pem
+*.key
