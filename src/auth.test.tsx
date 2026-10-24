@@ -12,6 +12,7 @@ function Probe() {
       <p>status: {auth.status}</p>
       <p>user: {auth.user ? auth.user.login : "nobody"}</p>
       <p>sign-in: {auth.signInAvailable ? "available" : "not available"}</p>
+      <p>chat: {auth.chatAvailable ? "available" : "not available"}</p>
       <button onClick={() => void auth.signOut()}>out</button>
     </div>
   );
@@ -19,12 +20,13 @@ function Probe() {
 
 describe("AuthProvider", () => {
   it("is loading, then shows who is signed in", async () => {
-    mockApi({ "GET /api/auth/me": () => ({ body: { user: { login: "octo", avatar_url: null }, sign_in_available: true } }) });
+    mockApi({ "GET /api/auth/me": () => ({ body: { user: { login: "octo", avatar_url: null }, sign_in_available: true, chat_available: true } }) });
     render(<AuthProvider><Probe /></AuthProvider>);
     expect(screen.getByText("status: loading")).toBeInTheDocument();
     expect(await screen.findByText("user: octo")).toBeInTheDocument();
     expect(screen.getByText("status: ready")).toBeInTheDocument();
     expect(screen.getByText("sign-in: available")).toBeInTheDocument();
+    expect(screen.getByText("chat: available")).toBeInTheDocument();
   });
 
   it("treats a signed-out visitor as nobody, and remembers whether sign-in is set up", async () => {
@@ -32,6 +34,8 @@ describe("AuthProvider", () => {
     render(<AuthProvider><Probe /></AuthProvider>);
     expect(await screen.findByText("user: nobody")).toBeInTheDocument();
     expect(screen.getByText("sign-in: not available")).toBeInTheDocument();
+    // An older server doesn't say, which means no chat.
+    expect(screen.getByText("chat: not available")).toBeInTheDocument();
   });
 
   it("behaves as signed out, not broken, when the server can't be reached", async () => {

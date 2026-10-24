@@ -79,6 +79,7 @@ export function authValue(overrides: Partial<AuthValue> = {}): AuthValue {
     status: "ready",
     user: null,
     signInAvailable: false,
+    chatAvailable: false,
     refresh: vi.fn(async () => {}),
     signOut: vi.fn(async () => {}),
     ...overrides,

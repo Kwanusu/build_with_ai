@@ -398,3 +398,56 @@ describe("creating a pull request", () => {
     expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
   });
 });
+
+describe("asking about the results", () => {
+  const items = () => [finding({ id: 301, item: "formatInvoice" })];
+
+  function renderWith(auth: ReturnType<typeof authValue>, result = scan({}, items()), extra: Parameters<typeof mockApi>[0] = {}) {
+    const api = mockApi({ [LATEST]: () => ({ body: { scan: result } }), ...extra });
+    render(
+      <AuthContext.Provider value={auth}>
+        <ScanPage {...REPO} pollMs={0} />
+      </AuthContext.Provider>,
+    );
+    return api;
+  }
+
+  it("offers questions about a finished scan when the server has chat set up", async () => {
+    renderWith(authValue({ chatAvailable: true }));
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByRole("heading", { level: 2, name: "Questions about this scan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask about these results" })).toBeInTheDocument();
+  });
+
+  it("offers nothing when the server has no chat, and the page works as before", async () => {
+    renderWith(authValue({ chatAvailable: false }));
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("heading", { name: "Questions about this scan" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Create pull request" })).toBeEnabled();
+  });
+
+  it("offers nothing when there is nothing to ask about", async () => {
+    renderWith(authValue({ chatAvailable: true }), scan({}, []));
+    await screen.findByRole("heading", { name: "Nothing to prune" });
+    expect(screen.queryByRole("heading", { name: "Questions about this scan" })).toBeNull();
+  });
+
+  it("is there on a public scan too, since anyone can read it", async () => {
+    renderWith(authValue({ chatAvailable: true }), scan({ can_tick: false }, items()));
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.getByRole("button", { name: "Ask about these results" })).toBeInTheDocument();
+  });
+
+  it("asks about this scan, and leaves Create pull request as the one main action", async () => {
+    const api = renderWith(authValue({ chatAvailable: true }), scan({ id: 42 }, items()), {
+      "POST /api/scans/42/chat": () => ({ body: { reply: "formatInvoice has no other use in the repo." } }),
+    });
+    await screen.findByRole("heading", { level: 1 });
+    await userEvent.click(screen.getByRole("button", { name: "Ask about these results" }));
+    await userEvent.type(screen.getByLabelText("Your question"), "Why is formatInvoice flagged?{Enter}");
+    expect(await screen.findByText("formatInvoice has no other use in the repo.")).toBeInTheDocument();
+    expect(api.calls.at(-1)).toEqual({ key: "POST /api/scans/42/chat", body: { messages: [{ role: "user", content: "Why is formatInvoice flagged?" }] } });
+    expect(document.querySelectorAll(".btn-primary")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Create pull request" })).toHaveClass("btn-primary");
+  });
+});

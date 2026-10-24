@@ -18,6 +18,7 @@ import { scanHash } from "../route";
 import { Connect, Frame } from "./Connect";
 import { Findings } from "./Findings";
 import { PullRequestCreated } from "./PullRequestCreated";
+import { ScanChat } from "./ScanChat";
 import { Button, LeafIcon, Notice, Spinner, TriangleAlertIcon } from "./ui";
 
 type View =
@@ -377,6 +378,8 @@ function Results({
       </div>
 
       {!empty && scan.can_tick && <p className="type-small c-muted reading">{SCAN.results.prScope}</p>}
+
+      {!empty && auth.chatAvailable && <ScanChat scanId={scan.id} />}
 
       <Findings scan={scan} onTick={onTick} />
     </Frame>

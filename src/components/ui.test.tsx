@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Button } from "./ui";
+import { Button, TextArea } from "./ui";
 
 describe("Button", () => {
   it("renders a link when given an href", () => {
@@ -51,5 +53,65 @@ describe("Button", () => {
     );
     const button = screen.getByRole("button", { name: "Sign out" });
     expect(button).toHaveClass("btn-plain", "btn-sm");
+  });
+
+  it("says whether the thing it shows is showing", () => {
+    const { rerender } = render(
+      <Button expanded={false} onClick={() => {}}>
+        Show
+      </Button>,
+    );
+    expect(screen.getByRole("button", { name: "Show" })).toHaveAttribute("aria-expanded", "false");
+    rerender(
+      <Button expanded onClick={() => {}}>
+        Show
+      </Button>,
+    );
+    expect(screen.getByRole("button", { name: "Show" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("leaves aria-expanded off a button that doesn't show or hide anything", () => {
+    render(<Button onClick={() => {}}>Retry</Button>);
+    expect(screen.getByRole("button", { name: "Retry" })).not.toHaveAttribute("aria-expanded");
+  });
+});
+
+describe("TextArea", () => {
+  function Harness({ onEnter }: { onEnter?: () => void }) {
+    const [value, setValue] = useState("");
+    return <TextArea id="q" label="Your question" value={value} onChange={setValue} onEnter={onEnter} helper="Press Enter to send." />;
+  }
+
+  it("has a label and a helper that the field is described by", () => {
+    render(<Harness />);
+    const field = screen.getByLabelText("Your question");
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toHaveClass("input", "input-multiline");
+    expect(field).toHaveAccessibleDescription("Press Enter to send.");
+  });
+
+  it("reports what is typed", async () => {
+    render(<Harness />);
+    await userEvent.type(screen.getByLabelText("Your question"), "Why?");
+    expect(screen.getByLabelText("Your question")).toHaveValue("Why?");
+  });
+
+  it("calls onEnter for Enter but starts a new line for Shift and Enter", async () => {
+    const onEnter = vi.fn();
+    render(<Harness onEnter={onEnter} />);
+    const field = screen.getByLabelText("Your question");
+    await userEvent.type(field, "one{Shift>}{Enter}{/Shift}two");
+    expect(onEnter).not.toHaveBeenCalled();
+    expect(field).toHaveValue("one\ntwo");
+    await userEvent.type(field, "{Enter}");
+    expect(onEnter).toHaveBeenCalledTimes(1);
+    expect(field).toHaveValue("one\ntwo"); // Enter on its own doesn't add a line
+  });
+
+  it("lets Enter add a line when nothing is listening for it", async () => {
+    render(<Harness />);
+    const field = screen.getByLabelText("Your question");
+    await userEvent.type(field, "a{Enter}b");
+    expect(field).toHaveValue("a\nb");
   });
 });

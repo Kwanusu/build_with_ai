@@ -253,3 +253,27 @@ export const CANNOT_TICK = {
   signedOut: "Sign in with GitHub to tick items and keep your choices.",
   publicScan: "This is a public scan, so items can't be ticked on it. Rescan to get your own copy that you can tick.",
 };
+
+export const CHAT = {
+  open: "Ask about these results",
+  close: "Hide questions",
+  title: "Questions about this scan",
+  intro: "Ask why something was flagged or what to check first. Answers come from this scan, and nothing in your code is changed.",
+  label: "Your question",
+  placeholder: "Why was this export flagged as unused?",
+  helper: "Press Enter to send. Press Shift and Enter for a new line.",
+  send: "Send question",
+  sending: "Asking",
+  reading: "Reading the scan",
+  you: "You",
+  assistant: "Lopper",
+  conversation: "Conversation",
+  startOver: "Start over",
+  full: "That conversation is as long as it can get. Start over to keep asking.",
+  aiNote: "An AI model writes these answers from this scan's findings. Check them against your code before you merge.",
+  starters: [
+    "Explain why these items were flagged",
+    "Show what needs a closer look",
+    "Tell me what to check before I merge",
+  ],
+};

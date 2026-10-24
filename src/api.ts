@@ -39,6 +39,8 @@ export interface User {
 export interface Me {
   user: User | null;
   sign_in_available: boolean;
+  /** False when the server has no Gemini key, so there is nothing to ask. */
+  chat_available: boolean;
 }
 
 export interface RepoSummary {
@@ -122,6 +124,21 @@ export interface SkippedChange {
 /** Open a pull request that makes the changes ticked on this scan. Only the signed-in owner of the scan can. */
 export async function createPullRequest(scanId: number): Promise<PullRequestResult> {
   return request<PullRequestResult>(`/scans/${scanId}/pull-request`, { method: "POST" });
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** The server's limits on a conversation. A question can be this long, and a conversation this many messages. */
+export const MAX_QUESTION_CHARS = 1000;
+export const MAX_CHAT_MESSAGES = 20;
+
+/** Ask about a finished scan. `messages` is the whole conversation so far, ending with the new question. Returns the answer. */
+export async function askAboutScan(scanId: number, messages: ChatMessage[]): Promise<string> {
+  const { reply } = await request<{ reply: string }>(`/scans/${scanId}/chat`, { method: "POST", body: JSON.stringify({ messages }) });
+  return reply;
 }
 
 export async function setTicked(findingId: number, ticked: boolean): Promise<Finding> {

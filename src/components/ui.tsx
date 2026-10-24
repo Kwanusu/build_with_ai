@@ -22,6 +22,8 @@ interface ButtonActionProps extends ButtonBaseProps {
   onClick?: () => void;
   disabled?: boolean;
   busy?: boolean;
+  /** For a button that shows or hides something: whether it is showing now. */
+  expanded?: boolean;
   "aria-label"?: string;
 }
 
@@ -53,10 +55,61 @@ export function Button(props: ButtonProps) {
       onClick={props.onClick}
       disabled={props.disabled}
       aria-busy={props.busy}
+      aria-expanded={props.expanded}
       aria-label={props["aria-label"]}
     >
       {children}
     </button>
+  );
+}
+
+interface TextAreaProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  /** Called when Enter is pressed on its own. Shift and Enter still start a new line. */
+  onEnter?: () => void;
+  placeholder?: string;
+  helper?: string;
+  rows?: number;
+  maxLength?: number;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}
+
+/** A labelled multiline field, with the same look as the text input. */
+export function TextArea({ id, label, value, onChange, onEnter, placeholder, helper, rows = 3, maxLength, disabled, autoFocus }: TextAreaProps) {
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        className="input input-multiline"
+        rows={rows}
+        value={value}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        spellCheck
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (onEnter && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            onEnter();
+          }
+        }}
+        aria-describedby={helper ? `${id}-help` : undefined}
+      />
+      {helper && (
+        <p id={`${id}-help`} className="field-helper">
+          {helper}
+        </p>
+      )}
+    </div>
   );
 }
 
