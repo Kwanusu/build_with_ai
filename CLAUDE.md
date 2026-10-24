@@ -20,6 +20,13 @@
 - The front end reads who is signed in from `src/auth.tsx` and never sees a token. Pages must work signed out, and when sign-in isn't set up on the server.
 - Before every commit, run the tests for every part you touched.
 
+## Branches and releases
+
+- `main` is for merging and testing. Build each feature on its own branch, run the tests for every part you touched, and merge it into `main`. Nothing is deployed from `main`.
+- `prod` is what is deployed: `render.yaml` sets `branch: prod`, and Cloudflare's production branch is `prod` (a dashboard setting, see DEPLOY.md). Release only when I ask, by merging `main` into `prod` with `git merge --ff-only main` and pushing it. Never commit to `prod` directly, and never force-push it unless I ask. A rollback moves `prod` back to an earlier `main` commit.
+- Change `render.yaml`, `wrangler.jsonc` and DEPLOY.md on `main` first, so both branches keep the same deploy config.
+- When a small feature is done and its tests pass, commit it and push it to the branch you are on. Stage files by name so `.env` and other ignored files never go in. Don't merge, delete branches or push `main` or `prod` without being asked.
+
 ## Design
 
 - Read DESIGN.md before any change to the interface.
