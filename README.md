@@ -12,6 +12,17 @@ This repository holds the design system, the landing page, the Python back end a
 
 You can use Lopper three ways: paste a public GitHub repo URL into the web API, run `lopper scan` in a terminal, or use the VS Code commands, which run the same `lopper scan` in VS Code's terminal. The landing page's **Connect a GitHub repo** buttons open a screen where you paste a repo URL, wait for the scan and read the results, calling the API.
 
+## Architecture
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+  <img alt="Lopper's architecture. A person's browser loads the React site on Cloudflare, and a Cloudflare Worker forwards /api to the Flask API on Render. The API starts scans in the scan service, which clones from GitHub, runs the read-only scanner and saves findings to the database. It also handles GitHub sign-in, opens pull requests on GitHub from ticked items, and sends chat questions to OpenRouter." src="docs/architecture-light.svg">
+</picture>
+
+The site and its `/api` forwarder run on Cloudflare, the API on Render and the data on Supabase. Everything that reads or changes a repo goes through the API: scans only read, and a pull request comes only from items a person ticked. Click the picture to see it full size.
+
+Drawn from the code at commit `d1d4a08` with the archify skill, so it can drift as the code changes.
+
 ## Stack
 
 - **Front end:** TypeScript, React 19, Vite, Tailwind CSS 4, Vitest and Testing Library.
@@ -63,6 +74,7 @@ If you see "That request came from http://localhost:5174, which this server does
 | `src/components/` | React components |
 | `backend/` | The scanner, the `lopper` command and the Flask API |
 | `extension/` | The VS Code extension |
+| `docs/` | The architecture diagram shown above, as light and dark SVGs |
 | `CLAUDE.md` | Rules for Claude Code in this project |
 
 ## Changing the design
