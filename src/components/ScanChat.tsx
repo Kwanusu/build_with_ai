@@ -30,9 +30,10 @@ export function ScanChat({ scanId }: { scanId: number }) {
       const reply = await askAboutScan(scanId, asked);
       setMessages([...asked, { role: "assistant", content: reply }]);
     } catch (error) {
-      // Take the question back so it can be sent again, and so the conversation still alternates.
+      // Take the question back so it can be sent again, and so the conversation still alternates. If they have already
+      // started typing something else while they waited, keep that.
       setMessages(messages);
-      setDraft(text);
+      setDraft((current) => (current === "" ? text : current));
       setProblem(messageOf(error));
     } finally {
       setBusy(false);

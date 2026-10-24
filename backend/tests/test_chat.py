@@ -59,7 +59,28 @@ def test_a_conversation_keeps_only_the_role_and_the_text():
     ]
 
 
+def test_the_length_message_talks_about_the_message_that_is_too_long():
+    long_question = {"messages": [{"role": "user", "content": "x" * (chat.MAX_USER_CHARS + 1)}]}
+    with pytest.raises(ChatRequestError, match="Keep each question under 1,000 characters"):
+        parse_messages(long_question)
+    long_reply = {
+        "messages": [
+            {"role": "user", "content": "Why?"},
+            {"role": "assistant", "content": "x" * (chat.MAX_REPLY_CHARS + 1)},
+            {"role": "user", "content": "And?"},
+        ]
+    }
+    # A person who asked a short question isn't told to shorten it.
+    with pytest.raises(ChatRequestError, match="earlier answer") as problem:
+        parse_messages(long_reply)
+    assert "1,000" not in str(problem.value)
+
+
 # ----- what the model reads -----
+
+
+def test_the_model_is_told_what_to_do_when_it_sees_only_part_of_the_list():
+    assert "findings_shown" in chat.SYSTEM_PROMPT and "findings_total" in chat.SYSTEM_PROMPT
 
 
 def a_scan(findings=None, can_tick=True):
@@ -261,6 +282,19 @@ def test_a_problem_at_openrouter_becomes_fixed_text_and_nothing_from_the_provide
         assert leaked not in problem.value.message and leaked not in caplog.text
 
 
+def test_an_answer_that_ran_out_of_room_says_so_and_is_logged(caplog):
+    client = FakeClient(completion("Left-pad is flagged because", finish_reason="length"))
+    with caplog.at_level(logging.WARNING):
+        reply = Assistant("key", "m", client=client).reply(a_scan(), HISTORY)
+    assert reply.startswith("Left-pad is flagged because") and reply.endswith("(That answer was cut short. Ask a narrower question to get the rest.)")
+    assert "cut an answer short" in caplog.text
+
+
+def test_a_whole_answer_has_no_cut_short_note():
+    reply = Assistant("key", "m", client=FakeClient(completion("All of it.", finish_reason="stop"))).reply(a_scan(), HISTORY)
+    assert reply == "All of it."
+
+
 @pytest.mark.parametrize("reason", ["stop", "length"])
 def test_an_answer_with_no_text_is_a_failure_not_an_empty_reply(reason):
     with pytest.raises(ChatError) as problem:
@@ -413,3 +447,31 @@ def test_a_chat_from_another_site_is_refused(chat_app, assistant):
     response = chat_on(client, scan["id"], headers={"Origin": "https://evil.example"})
     assert response.status_code == 403 and response.get_json()["code"] == "bad_origin"
     assert assistant.calls == []
+
+
+def test_only_a_few_questions_wait_on_the_model_at_once_so_scans_keep_their_threads(make_app, assistant):
+    app = make_app(assistant=assistant, chat_max_concurrent=2, chats_per_minute=50)
+    client = app.test_client()
+    scan = client.post("/api/scans", json=REPO).get_json()["scan"]
+    slots = app.extensions["lopper_chat_slots"]
+    assert slots.acquire(blocking=False) and slots.acquire(blocking=False)  # two questions are already waiting
+
+    busy = chat_on(client, scan["id"])
+    assert busy.status_code == 429 and busy.get_json()["code"] == "chat_busy"
+    assert assistant.calls == []
+    # Other requests are untouched.
+    assert client.get("/api/health").status_code == 200
+
+    slots.release()
+    assert chat_on(client, scan["id"]).status_code == 200
+
+
+def test_a_slot_is_given_back_even_when_the_model_fails(make_app, assistant):
+    app = make_app(assistant=assistant, chat_max_concurrent=1, chats_per_minute=50)
+    client = app.test_client()
+    scan = client.post("/api/scans", json=REPO).get_json()["scan"]
+    assistant.error = ChatError("Fixed text. Nothing has been changed.", "chat_failed", 502)
+    for _ in range(3):  # would be a 429 from the second one on if the slot leaked
+        assert chat_on(client, scan["id"]).status_code == 502
+    assistant.error = None
+    assert chat_on(client, scan["id"]).status_code == 200

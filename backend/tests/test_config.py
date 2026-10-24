@@ -112,3 +112,15 @@ def test_the_banner_says_what_chat_needs_when_it_is_off():
 def test_openrouters_own_spelling_of_the_key_works_too_and_ours_wins_if_both_are_set(monkeypatch):
     assert chat_settings(monkeypatch, OPENROUTER_API_KEY="sk-or-theirs")[0] == "sk-or-theirs"
     assert chat_settings(monkeypatch, OPENROUTER_API_KEY="sk-or-theirs", OPEN_ROUTER_API_KEY="sk-or-ours")[0] == "sk-or-ours"
+
+
+@pytest.mark.parametrize("bad", ["ten", "0", "-3", "2.5"])
+def test_a_bad_chat_limit_stops_the_server_with_a_clear_message_that_doesnt_echo_it(monkeypatch, bad):
+    monkeypatch.setenv("CHATS_PER_MINUTE", bad)
+    with pytest.raises(RuntimeError, match="CHATS_PER_MINUTE must be a whole number of 1 or more") as problem:
+        Config.from_env()
+    assert bad not in str(problem.value).replace("1 or more", "")
+
+
+def test_an_empty_chat_limit_means_the_default(monkeypatch):
+    assert chat_settings(monkeypatch, CHATS_PER_MINUTE="  ")[2] == 10

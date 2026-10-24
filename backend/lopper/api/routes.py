@@ -172,10 +172,16 @@ def chat_about_scan(scan_id: int):
     limiter: RateLimiter = current_app.extensions["lopper_chat_limiter"]
     if not limiter.allow(client_address()):
         return error("That's a lot of questions in a minute. Wait a moment and try again. Nothing has been changed.", "rate_limited", 429)
+    # Each question holds one of the API's threads while the model answers, so only a few can wait at once.
+    slots = current_app.extensions["lopper_chat_slots"]
+    if not slots.acquire(blocking=False):
+        return error("The assistant is busy right now. Wait a moment and try again. Nothing has been changed.", "chat_busy", 429)
     try:
         reply = assistant.reply(scan, history)
     except ChatError as problem:
         return error(problem.message, problem.code, problem.status)
+    finally:
+        slots.release()
     return jsonify({"reply": reply})
 
 

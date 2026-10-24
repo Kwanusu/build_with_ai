@@ -379,7 +379,7 @@ function Results({
 
       {!empty && scan.can_tick && <p className="type-small c-muted reading">{SCAN.results.prScope}</p>}
 
-      {!empty && auth.chatAvailable && <ScanChat scanId={scan.id} />}
+      {!empty && auth.chatAvailable && <ScanChat key={scan.id} scanId={scan.id} />}
 
       <Findings scan={scan} onTick={onTick} />
     </Frame>

@@ -28,6 +28,20 @@ def _github_credentials(env) -> tuple[str | None, str | None, str]:
     return deployed[0], deployed[1], "deployed" if all(deployed) else ""
 
 
+def _positive_int(env, name: str, default: int) -> int:
+    """A whole number of 1 or more from the environment. Empty means the default. The bad value isn't echoed."""
+    raw = (env.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise RuntimeError(f"{name} must be a whole number of 1 or more. Check the value in .env.")
+    return value
+
+
 @dataclass(frozen=True)
 class Config:
     # A SQLite file path, or a postgresql:// address (for example Supabase).
@@ -60,6 +74,9 @@ class Config:
     chat_model: str = "google/gemini-2.5-flash"
     # How many chat messages one address can send per minute. Each one is a paid model call.
     chats_per_minute: int = 10
+    # How many questions can be waiting on the model at once. Each holds one of the API's 8 threads, so this keeps room
+    # for scans, sign-in and the health check.
+    chat_max_concurrent: int = 4
     extra: dict = field(default_factory=dict)
 
     @property
@@ -95,6 +112,6 @@ class Config:
             proxy_secret=env.get("PROXY_SECRET") or None,
             chat_api_key=clean_setting(env.get("OPEN_ROUTER_API_KEY") or env.get("OPENROUTER_API_KEY") or "") or None,
             chat_model=clean_setting(env.get("AI_MODEL") or "") or cls.chat_model,
-            chats_per_minute=int(env.get("CHATS_PER_MINUTE", cls.chats_per_minute)),
+            chats_per_minute=_positive_int(env, "CHATS_PER_MINUTE", cls.chats_per_minute),
         )
         return replace(config, **overrides) if overrides else config

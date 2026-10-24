@@ -159,6 +159,22 @@ describe("the chat panel", () => {
     expect(calls[1].body).toEqual({ messages: [{ role: "user", content: "Why was this flagged?" }] });
   });
 
+  it("keeps what you started typing while you waited, if the answer fails", async () => {
+    let fail!: () => void;
+    const waiting = new Promise<void>((_, reject) => (fail = () => reject(new Error("no"))));
+    renderChat(async () => {
+      await waiting.catch(() => {});
+      return { status: 502, body: { error: "We couldn't get an answer just now. Nothing has been changed.", code: "chat_failed" } };
+    });
+    await openPanel();
+    await ask("First question");
+    await userEvent.type(question(), "A follow-up I was typing");
+    fail();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(question()).toHaveValue("A follow-up I was typing");
+    expect(screen.queryByRole("list", { name: "Conversation" })).toBeNull();
+  });
+
   it("explains a rate limit in the server's words", async () => {
     renderChat(() => ({
       status: 429,

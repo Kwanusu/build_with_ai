@@ -58,7 +58,7 @@ Then put its client ID and secret into the Render service's environment and rede
 ## Things to know
 
 - **Free Render services sleep** after about 15 minutes idle. The next visit waits roughly a minute while it wakes. A scan that is running when the service sleeps is lost, and the site offers to scan again.
-- **Chat costs money and holds a thread.** With `OPEN_ROUTER_API_KEY` set, anyone who can open a scan can ask about it, up to `CHATS_PER_MINUTE` (10) questions a minute per visitor. A question holds one of the API's 8 threads while the model answers, up to 90 seconds. Set a credit limit on the key at openrouter.ai/keys, and remove the key from Render to switch chat off.
+- **Chat costs money and holds a thread.** With `OPEN_ROUTER_API_KEY` set, anyone who can open a scan can ask about it, up to `CHATS_PER_MINUTE` (10) questions a minute per visitor. A question holds one of the API's 8 threads while the model answers, up to 90 seconds, and no more than 4 can wait at once, so scans and sign-in keep running. Set a credit limit on the key at openrouter.ai/keys, and remove the key from Render to switch chat off.
 - **One worker.** Scans run in threads inside the API process and the rate limit is kept in memory, so the Dockerfile runs one gunicorn worker with threads. Don't raise `--workers` without moving both elsewhere.
 - **Secrets** live only in Render's and Cloudflare's settings. Never put them in the repo.
 - **Local development doesn't change.** With no `DATABASE_URL` the API uses the SQLite file `backend/lopper.db`.

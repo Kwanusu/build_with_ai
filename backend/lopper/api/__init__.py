@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import re
+import threading
 from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, request
@@ -55,6 +56,7 @@ def create_app(
     app.extensions["lopper_pool"] = pool
     app.extensions["lopper_limiter"] = RateLimiter(config.scans_per_minute)
     app.extensions["lopper_chat_limiter"] = RateLimiter(config.chats_per_minute)
+    app.extensions["lopper_chat_slots"] = threading.BoundedSemaphore(config.chat_max_concurrent)
     app.extensions["lopper_scans"] = ScanService(
         pool, fetch=fetch, workers=config.scan_workers, inline=config.scan_inline, stale_minutes=config.stale_scan_minutes
     )

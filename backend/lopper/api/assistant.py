@@ -20,6 +20,7 @@ BASE_URL = "https://openrouter.ai/api/v1"
 MAX_TOKENS = 8000
 # Under gunicorn's 120 second timeout, so a slow call ends here and not as a killed worker.
 TIMEOUT_SECONDS = 90.0
+CUT_SHORT = "\n\n(That answer was cut short. Ask a narrower question to get the rest.)"
 
 
 class ChatError(Exception):
@@ -84,4 +85,8 @@ class Assistant:
         if not text:
             log.error("OpenRouter returned no text (finish reason %s)", choice.finish_reason)
             raise failed()
+        if choice.finish_reason == "length":
+            # The model ran out of room, perhaps after thinking at length. Say so, so a cut-off answer isn't read as whole.
+            log.warning("OpenRouter cut an answer short (finish reason length)")
+            text = text.rstrip() + CUT_SHORT
         return text if len(text) <= MAX_REPLY_CHARS else text[: MAX_REPLY_CHARS - 1].rstrip() + "…"
