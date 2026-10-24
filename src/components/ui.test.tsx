@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Button, TextArea } from "./ui";
+import { Button, IconButton, TextArea } from "./ui";
 
 describe("Button", () => {
   it("renders a link when given an href", () => {
@@ -113,5 +113,40 @@ describe("TextArea", () => {
     const field = screen.getByLabelText("Your question");
     await userEvent.type(field, "a{Enter}b");
     expect(field).toHaveValue("a\nb");
+  });
+});
+
+describe("IconButton", () => {
+  it("is a button named by its label, which is also its tooltip, and calls onClick", () => {
+    const onClick = vi.fn();
+    render(
+      <IconButton label="Close" onClick={onClick}>
+        <svg aria-hidden="true" />
+      </IconButton>,
+    );
+    const button = screen.getByRole("button", { name: "Close" });
+    expect(button).toHaveAttribute("type", "button");
+    expect(button).toHaveAttribute("title", "Close");
+    fireEvent.click(button);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("is plain and 40px by default, and takes a size and a variant", () => {
+    render(
+      <>
+        <IconButton label="Default" onClick={() => {}}>
+          <svg />
+        </IconButton>
+        <IconButton label="Small" size="sm" variant="secondary" onClick={() => {}}>
+          <svg />
+        </IconButton>
+        <IconButton label="Large" size="lg" onClick={() => {}} className="sm:hidden">
+          <svg />
+        </IconButton>
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Default" }).className).toBe("icon-btn");
+    expect(screen.getByRole("button", { name: "Small" })).toHaveClass("icon-btn", "icon-btn-secondary", "icon-btn-sm");
+    expect(screen.getByRole("button", { name: "Large" })).toHaveClass("icon-btn", "icon-btn-lg", "sm:hidden");
   });
 });

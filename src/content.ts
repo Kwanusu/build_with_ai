@@ -277,3 +277,9 @@ export const CHAT = {
     "Tell me what to check before I merge",
   ],
 };
+
+export const THEME = {
+  names: { system: "match your device", light: "light", dark: "dark" },
+  /** The toggle's label says what is on now and what pressing it does. */
+  label: (current: string, next: string) => `Theme: ${current}. Switch to ${next}.`,
+};

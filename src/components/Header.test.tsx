@@ -23,7 +23,16 @@ describe("the header when you're signed out", () => {
   it("offers nothing extra on the scan page, which has its own sign-in button", () => {
     renderHeader(authValue(), false);
     expect(screen.queryByRole("link", { name: "Connect a GitHub repo" })).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
+    // The theme toggle is the only button.
+    expect(screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
+      expect.stringMatching(/^Theme: /),
+    ]);
+  });
+
+  it("has the theme toggle, for tablets and up", () => {
+    renderHeader();
+    const toggle = screen.getByRole("button", { name: /^Theme: / });
+    expect(toggle).toHaveClass("hidden", "sm:inline-flex");
   });
 });
 

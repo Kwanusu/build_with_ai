@@ -4,6 +4,8 @@
 
 /* Semantic roles. Every value comes from the tokens in styles.css, which is exported from DESIGN.md. */
 :root {
+  /* Tells the browser which theme the page is in, so scrollbars, the textarea and other native controls match it. */
+  color-scheme: light;
   --c-page: var(--color-background);
   --c-card: var(--color-surface);
   --c-text: var(--color-text);
@@ -28,6 +30,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --c-page: var(--color-dark-background);
   --c-card: var(--color-dark-surface);
   --c-text: var(--color-dark-text);
@@ -158,6 +161,29 @@
   .btn-plain { background: transparent; color: var(--c-primary); }
   .btn-plain:hover { background: var(--c-primary-hover); }
 
+  /* Icon button (DESIGN.md, Buttons): a square in 32, 40 or 48px, plain or secondary, always with an aria-label. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--spacing-control-height-md);
+    height: var(--spacing-control-height-md);
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--c-text);
+    transition: background-color 200ms cubic-bezier(.22,.61,.36,1), border-color 200ms cubic-bezier(.22,.61,.36,1);
+  }
+  .icon-btn:hover { background: var(--c-primary-hover); }
+  .icon-btn .icon { width: 20px; height: 20px; }
+  .icon-btn-sm { width: var(--spacing-control-height-sm); height: var(--spacing-control-height-sm); }
+  .icon-btn-sm .icon { width: 16px; height: 16px; }
+  .icon-btn-lg { width: var(--spacing-control-height-lg); height: var(--spacing-control-height-lg); }
+  .icon-btn-secondary { background: var(--c-card); border-color: var(--c-border); }
+  .icon-btn-secondary:hover { border-color: var(--c-muted); }
+
   .badge {
     display: inline-flex;
     align-items: center;
@@ -227,6 +253,7 @@
     letter-spacing: 0.025em;
     transition: border-color 200ms cubic-bezier(.22,.61,.36,1);
   }
+  .input::placeholder { color: var(--c-muted); opacity: 1; }
   .input:hover { border-color: var(--c-muted); }
   .input:focus { border-color: var(--c-primary); }
   .input[aria-invalid="true"] { border-color: var(--c-error); }

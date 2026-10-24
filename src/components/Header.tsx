@@ -3,6 +3,7 @@ import { useAuth } from "../auth";
 import { ACCOUNT, CTA_HREF, CTA_LABEL, NAV_LINKS } from "../content";
 import { Button } from "./ui";
 import { Logo } from "./Logo";
+import { ThemeToggle } from "./ThemeToggle";
 
 function Account() {
   const auth = useAuth();
@@ -47,15 +48,17 @@ export function Header({ showAction = true }: { showAction?: boolean }) {
             </a>
           ))}
         </nav>
-        {auth.user ? (
-          <Account />
-        ) : showAction ? (
-          <Button href={CTA_HREF} size="sm">
-            {CTA_LABEL}
-          </Button>
-        ) : (
-          <span aria-hidden="true" />
-        )}
+        <div className="flex items-center gap-1">
+          {/* Phones get this one in the footer: the header has no room for it next to the main action. */}
+          <ThemeToggle className="hidden sm:inline-flex" />
+          {auth.user ? (
+            <Account />
+          ) : showAction ? (
+            <Button href={CTA_HREF} size="sm">
+              {CTA_LABEL}
+            </Button>
+          ) : null}
+        </div>
       </div>
     </header>
   );

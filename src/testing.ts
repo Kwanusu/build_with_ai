@@ -87,3 +87,24 @@ export function authValue(overrides: Partial<AuthValue> = {}): AuthValue {
 }
 
 export const OCTO = { login: "octo", avatar_url: "https://avatars.example/octo.png" };
+
+/** Stand in for the device's colour setting. `change` flips it and tells whoever is listening, like a real device does. */
+export function mockSystemTheme(dark: boolean) {
+  let matches = dark;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    media: query,
+    get matches() {
+      return query.includes("dark") ? matches : false;
+    },
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+  }));
+  return {
+    change(next: boolean) {
+      matches = next;
+      listeners.forEach((listener) => listener());
+    },
+    listenerCount: () => listeners.size,
+  };
+}

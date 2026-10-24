@@ -1,5 +1,6 @@
 import { COPYRIGHT_HOLDER, FOOTER_NOTE } from "../content";
 import { Logo } from "./Logo";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -10,9 +11,13 @@ export function Footer() {
           <Logo variant="wordmark" />
           <p className="type-small c-muted reading">{FOOTER_NOTE}</p>
         </div>
-        <p className="type-small c-muted">
-          © {year} {COPYRIGHT_HOLDER}. All rights reserved.
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="type-small c-muted">
+            © {year} {COPYRIGHT_HOLDER}. All rights reserved.
+          </p>
+          {/* The header has this one from tablet width up. */}
+          <ThemeToggle size="lg" className="sm:hidden" />
+        </div>
       </div>
     </footer>
   );

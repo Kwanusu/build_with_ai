@@ -113,6 +113,32 @@ export function TextArea({ id, label, value, onChange, onEnter, placeholder, hel
   );
 }
 
+interface IconButtonProps {
+  /** What it does. An icon alone says nothing to a screen reader, so this is required. */
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+  variant?: "plain" | "secondary";
+  size?: ButtonSize;
+  className?: string;
+}
+
+/** A square button with just an icon. */
+export function IconButton({ label, onClick, children, variant = "plain", size = "md", className = "" }: IconButtonProps) {
+  const sizeClass = size === "md" ? "" : `icon-btn-${size}`;
+  return (
+    <button
+      type="button"
+      className={`icon-btn ${variant === "secondary" ? "icon-btn-secondary" : ""} ${sizeClass} ${className}`.replace(/\s+/g, " ").trim()}
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+    >
+      {children}
+    </button>
+  );
+}
+
 type BadgeTone = "success" | "warning" | "neutral";
 
 interface BadgeProps {
@@ -173,6 +199,40 @@ export function LeafIcon() {
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
       <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+    </svg>
+  );
+}
+
+export function SunIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </svg>
+  );
+}
+
+export function MoonIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </svg>
+  );
+}
+
+export function MonitorIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="20" height="14" x="2" y="3" rx="2" />
+      <line x1="8" x2="16" y1="21" y2="21" />
+      <line x1="12" x2="12" y1="17" y2="21" />
     </svg>
   );
 }
