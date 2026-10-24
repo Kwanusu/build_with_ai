@@ -46,3 +46,6 @@ extension/.vscode-test/
 # Keys and certificates
 *.pem
 *.key
+
+# Diagrams made by the archify skill
+.archify/
