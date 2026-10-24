@@ -125,9 +125,23 @@ Signing in lets someone scan repos they can access, including private ones, and 
 
 Not tested against the real GitHub yet: the handshake is covered with a stand-in for GitHub, and checked on a running server up to the redirect to GitHub.
 
+### Ask about a scan
+
+The results page can offer a panel for questions about a finished scan, such as why an item was flagged or what to check before removing it. It is off until you set `GEMINI_API_KEY` in `.env` (in `backend/` or the project root) and restart; `AI_MODEL` picks the model. `lopper serve` says at startup whether chat is on and which model it uses. Without a key the panel doesn't appear and everything else works as before.
+
+`POST /api/scans/<id>/chat` takes `{"messages": [{"role": "user", "content": "..."}]}`: the whole conversation so far, alternating `user` and `assistant`, ending with a question. It returns `{"reply": "..."}`. Up to 20 messages, 1,000 characters in a question.
+
+- **Who can ask:** anyone who can read the scan. A private scan is only for its owner, and anyone else gets "not found". A public scan can be asked about by anyone.
+- **What the model sees:** the server's own copy of the scan (up to 300 findings, with their evidence) and which items are ticked right now. The browser sends only the conversation, so it can't put findings of its own in front of the model. The repo's text goes in the first user message inside `<scan_data>`, with `<` escaped, and the system prompt says to treat it as data.
+- **What it can do:** explain. It has no tools, can't tick items, scan or open pull requests, and is told never to say it changed code.
+- **Cost and limits:** each question is a paid call to Gemini (`AI_MODEL`, `gemini-flash-latest` if it isn't set). One address can send `CHATS_PER_MINUTE` (10) a minute, counted only for questions that get as far as the model. A call times out after 90 seconds, under gunicorn's 120.
+- **What isn't kept:** nothing. Questions and answers aren't stored here. The page keeps the conversation in the browser until you leave it. Google may keep what it is sent, under the terms of your Gemini key, so don't point chat at repos you wouldn't want it to see.
+- **How it is kept safe:** the key stays on the server and is never returned or logged. A failure at Gemini becomes fixed text (`chat_unavailable`, `chat_busy` or `chat_failed`) with nothing from Google's reply in it. If Gemini declines a question, the person gets a fixed answer.
+- **If chat says it isn't working:** the server log says why, with a status and never the key or Google's message. `402` means the key's Google project has no billing set up. `404` means `AI_MODEL` names a model that isn't served; to see the models your key can use, call `genai.Client(api_key=...).models.list()`. `429` or `503` is Google being busy or out of quota, and the person is told to wait a moment.
+
 ### Settings
 
-Environment variables, all optional (see `.env.example`): `DATABASE_URL` or `DATABASE_PATH`, `PROXY_SECRET`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (or the local pair `CLIENT_ID`, `CLIENT_SECRET`), `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from a `.env` file in the current folder, `backend/` or the project root.
+Environment variables, all optional (see `.env.example`): `DATABASE_URL` or `DATABASE_PATH`, `PROXY_SECRET`, `CORS_ORIGINS`, `SCAN_WORKERS`, `SCANS_PER_MINUTE`, for chat `GEMINI_API_KEY`, `AI_MODEL`, `CHATS_PER_MINUTE`, and for sign-in `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (or the local pair `CLIENT_ID`, `CLIENT_SECRET`), `SECRET_KEY`, `FRONTEND_URL`, `GITHUB_SCOPES`. `lopper serve` also reads them from a `.env` file in the current folder, `backend/` or the project root.
 
 ### Safety
 

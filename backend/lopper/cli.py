@@ -101,13 +101,22 @@ def sign_in_banner(config) -> str:
     )
 
 
+def chat_banner(config) -> str:
+    """What to tell the person starting the server about the chat panel. The model name is public, the key never printed."""
+    if not config.gemini_api_key:
+        return "Chat is off (it needs GEMINI_API_KEY in .env)."
+    return f"Chat is on, using the model {config.chat_model}. Each question is a paid call to Gemini."
+
+
 def _serve(args: argparse.Namespace) -> int:
     from .api import create_app
 
     load_dotenv()  # settings and the GitHub app's secret can live in backend/.env
 
     app = create_app()
-    print(sign_in_banner(app.extensions["lopper_config"]), flush=True)
+    config = app.extensions["lopper_config"]
+    print(sign_in_banner(config), flush=True)
+    print(chat_banner(config), flush=True)
     app.run(host=args.host, port=args.port, debug=args.debug)
     return 0
 

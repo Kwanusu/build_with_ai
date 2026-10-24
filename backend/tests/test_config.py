@@ -68,3 +68,42 @@ def test_the_banner_says_when_sign_in_is_off(monkeypatch):
 
     credentials(monkeypatch)
     assert "sign-in is off" in sign_in_banner(Config.from_env())
+
+
+def chat_settings(monkeypatch, **env):
+    for name in ("GEMINI_API_KEY", "AI_MODEL", "CHATS_PER_MINUTE"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    config = Config.from_env()
+    return config.gemini_api_key, config.chat_model, config.chats_per_minute
+
+
+def test_chat_has_no_key_until_one_is_set_and_uses_a_default_model_and_limit(monkeypatch):
+    assert chat_settings(monkeypatch) == (None, "gemini-flash-latest", 10)
+
+
+def test_the_key_the_model_and_the_limit_come_from_the_environment(monkeypatch):
+    assert chat_settings(monkeypatch, GEMINI_API_KEY="AIza-test", AI_MODEL="gemini-test", CHATS_PER_MINUTE="3") == ("AIza-test", "gemini-test", 3)
+
+
+def test_quotes_and_spaces_around_the_key_and_model_are_dropped(monkeypatch):
+    got = chat_settings(monkeypatch, GEMINI_API_KEY='  "AIza-test" ', AI_MODEL=" 'gemini-test' ")
+    assert got[:2] == ("AIza-test", "gemini-test")
+
+
+def test_empty_chat_settings_count_as_not_set(monkeypatch):
+    assert chat_settings(monkeypatch, GEMINI_API_KEY="", AI_MODEL="  ") == (None, "gemini-flash-latest", 10)
+
+
+def test_the_banner_names_the_model_when_chat_is_on_and_never_the_key(monkeypatch):
+    from lopper.cli import chat_banner
+
+    banner = chat_banner(Config(gemini_api_key="AIza-secret", chat_model="gemini-test"))
+    assert "Chat is on" in banner and "gemini-test" in banner and "AIza-secret" not in banner
+
+
+def test_the_banner_says_what_chat_needs_when_it_is_off():
+    from lopper.cli import chat_banner
+
+    assert "Chat is off" in chat_banner(Config()) and "GEMINI_API_KEY" in chat_banner(Config())

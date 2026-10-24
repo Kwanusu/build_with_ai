@@ -55,11 +55,11 @@ def test_sign_in_state_is_signed_and_must_match():
 
 
 def test_me_when_signed_out(client):
-    assert client.get("/api/auth/me").get_json() == {"user": None, "sign_in_available": False}
+    assert client.get("/api/auth/me").get_json() == {"user": None, "sign_in_available": False, "chat_available": False}
 
 
 def test_me_says_sign_in_is_available_when_configured(auth_app):
-    assert auth_app.test_client().get("/api/auth/me").get_json() == {"user": None, "sign_in_available": True}
+    assert auth_app.test_client().get("/api/auth/me").get_json() == {"user": None, "sign_in_available": True, "chat_available": False}
 
 
 def test_me_when_signed_in(auth_app):

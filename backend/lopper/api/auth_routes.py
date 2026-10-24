@@ -40,6 +40,7 @@ def me():
         {
             "user": {"login": user["login"], "avatar_url": user["avatar_url"]} if user else None,
             "sign_in_available": _config().auth_enabled,
+            "chat_available": current_app.extensions["lopper_assistant"] is not None,
         }
     )
 

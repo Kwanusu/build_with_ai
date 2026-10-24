@@ -92,6 +92,26 @@ def github():
     return FakeGitHub()
 
 
+class FakeAssistant:
+    """Stands in for the chat model: no network, and it remembers what it was asked."""
+
+    def __init__(self):
+        self.reply_text = "formatInvoice has no other use in the repo, so it's safe to stop exporting."
+        self.error = None
+        self.calls = []  # (scan, history) for every question
+
+    def reply(self, scan, history):
+        self.calls.append((scan, history))
+        if self.error:
+            raise self.error
+        return self.reply_text
+
+
+@pytest.fixture()
+def assistant():
+    return FakeAssistant()
+
+
 @pytest.fixture()
 def fetched():
     """Every (repo url, token) the scanner was asked to fetch."""
@@ -114,7 +134,7 @@ def make_app(fake_fetch, tmp_path):
     count = 0
     created = []
 
-    def build(fetch=None, github=None, **config):
+    def build(fetch=None, github=None, assistant=None, **config):
         nonlocal count
         count += 1
         if github is not None:
@@ -129,6 +149,7 @@ def make_app(fake_fetch, tmp_path):
             ),
             fetch=fetch or fake_fetch,
             github=github,
+            assistant=assistant,
         )
         if TEST_DATABASE_URL:
             with app.extensions["lopper_pool"].connection() as conn:

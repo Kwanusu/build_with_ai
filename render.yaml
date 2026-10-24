@@ -27,3 +27,9 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
+      # Switches on the chat panel on the results page. Leave empty to run without it. Each question is a paid call to Gemini.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Which Gemini model answers. Leave empty for gemini-flash-latest.
+      - key: AI_MODEL
+        sync: false

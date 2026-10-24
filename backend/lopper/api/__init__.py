@@ -9,6 +9,7 @@ from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
 from . import auth_routes
+from .assistant import Assistant
 from .auth import TokenBox
 from .config import Config
 from .db import init_db, make_pool
@@ -35,9 +36,14 @@ def _bad_origin_message(origin: str, config: Config) -> str:
 
 
 def create_app(
-    config: Config | None = None, fetch: Fetcher = default_fetch, init: bool = True, github: GitHubClient | None = None
+    config: Config | None = None,
+    fetch: Fetcher = default_fetch,
+    init: bool = True,
+    github: GitHubClient | None = None,
+    assistant: Assistant | None = None,
 ) -> Flask:
-    """Build the Flask app. `fetch` is how a repo URL becomes a folder and `github` talks to GitHub; tests swap both."""
+    """Build the Flask app. `fetch` is how a repo URL becomes a folder, `github` talks to GitHub and `assistant` answers
+    chat questions; tests swap all three."""
     config = config or Config.from_env()
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
@@ -48,6 +54,7 @@ def create_app(
     app.extensions["lopper_config"] = config
     app.extensions["lopper_pool"] = pool
     app.extensions["lopper_limiter"] = RateLimiter(config.scans_per_minute)
+    app.extensions["lopper_chat_limiter"] = RateLimiter(config.chats_per_minute)
     app.extensions["lopper_scans"] = ScanService(
         pool, fetch=fetch, workers=config.scan_workers, inline=config.scan_inline, stale_minutes=config.stale_scan_minutes
     )
@@ -55,6 +62,11 @@ def create_app(
     app.extensions["lopper_tokens"] = TokenBox(config.secret_key or "sign-in-is-off")
     app.extensions["lopper_github"] = github or (
         GitHubClient(config.github_client_id, config.github_client_secret, config.github_scopes) if config.auth_enabled else None
+    )
+
+    # Chat is only switched on when a Gemini API key is set (or a test supplies an assistant).
+    app.extensions["lopper_assistant"] = assistant or (
+        Assistant(config.gemini_api_key, config.chat_model) if config.gemini_api_key else None
     )
 
     CORS(app, resources={r"/api/*": {"origins": sorted(config.allowed_origins)}}, supports_credentials=True)

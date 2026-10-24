@@ -7,8 +7,10 @@ from collections import defaultdict, deque
 
 from flask import Blueprint, current_app, g, jsonify, make_response, request
 
+from ..chat import ChatRequestError, parse_messages
 from ..repo import RepoError, parse_repo_url
 from ..scanner.models import FINDING_TYPES
+from .assistant import ChatError
 from .auth import SESSION_COOKIE, end_all_sessions, user_for_session
 from .db import database_is_up
 from .github import GitHubError
@@ -142,6 +144,39 @@ def update_finding(finding_id: int):
     if problem == "report_only":
         return error("Lint issues are report only, so there's nothing to tick.", "report_only", 400)
     return jsonify({"finding": finding})
+
+
+# Up to 10 questions of 1,000 characters and 10 replies of 8,000, with room for JSON. More than the global 16 KB limit.
+CHAT_BODY_LIMIT = 128 * 1024
+
+
+@bp.post("/scans/<int:scan_id>/chat")
+def chat_about_scan(scan_id: int):
+    """Answer a question about a finished scan. Anyone who can read the scan can ask, so a private scan is only for its owner."""
+    request.max_content_length = CHAT_BODY_LIMIT  # has to be set before the body is read
+    assistant = current_app.extensions["lopper_assistant"]
+    if assistant is None:
+        return error("Chat isn't set up on this server. Nothing has been changed.", "chat_unavailable", 503)
+    try:
+        history = parse_messages(request.get_json(silent=True))
+    except ChatRequestError as problem:
+        return error(str(problem), "invalid_request", 400)
+
+    user = current_user()
+    scan = service().get_scan(scan_id, viewer_id=user["id"] if user else None)
+    if not scan:
+        return error("We couldn't find that scan. It may have been replaced by a newer scan of the same repo.", "not_found", 404)
+    if scan["status"] != "done":
+        return error("That scan hasn't finished yet. Wait for it to finish, then ask again.", "scan_not_done", 409)
+
+    limiter: RateLimiter = current_app.extensions["lopper_chat_limiter"]
+    if not limiter.allow(client_address()):
+        return error("That's a lot of questions in a minute. Wait a moment and try again. Nothing has been changed.", "rate_limited", 429)
+    try:
+        reply = assistant.reply(scan, history)
+    except ChatError as problem:
+        return error(problem.message, problem.code, problem.status)
+    return jsonify({"reply": reply})
 
 
 @bp.post("/scans/<int:scan_id>/pull-request")
